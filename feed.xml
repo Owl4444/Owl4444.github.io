@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 06 Sep 2022 21:02:45 +0000</pubDate>
-    <lastBuildDate>Tue, 06 Sep 2022 21:02:45 +0000</lastBuildDate>
+    <pubDate>Tue, 06 Sep 2022 21:07:05 +0000</pubDate>
+    <lastBuildDate>Tue, 06 Sep 2022 21:07:05 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -26,12 +26,12 @@
 
 &lt;p&gt;During this time, I wil be using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pe-bear&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pestudio&lt;/code&gt; to inspect the PE File structure of the ransomware. Within the NT Headers, there is an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Optional Header&lt;/code&gt; that points to the Import Directory at raw file offset 0x160 which contains the address 0x21A8.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/import_directory_RVA.png&quot; alt=&quot;import_directory_RVA.png&quot; /&gt;
+&lt;p&gt;&lt;img src=&quot;/images/import_directory_RVA.png&quot; alt=&quot;import_directory_RVA.png&quot; /&gt;
 &lt;em&gt;Address of Import Directory&lt;/em&gt;&lt;/p&gt;
 
 &lt;p&gt;While this address looks pretty much normal, however, when we look at the data in the last section, realize that there is no such address as it ends at 0x19FF. WHAT?!&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/end_of_data.png&quot; alt=&quot;end_of_data.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/end_of_data.png&quot; alt=&quot;end_of_data.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;To understand this, we have to understand what Relative Virtual Address is! According to &lt;a href=&quot;https://en.wikipedia.org/wiki/COFF&quot;&gt;Wikipedia&lt;/a&gt; :&lt;/p&gt;
 
@@ -43,7 +43,7 @@
 
 &lt;p&gt;Before going deeper, let us first take a look and understand the Section Headers that can be seen in PE-bear.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/section_headers.png&quot; alt=&quot;section_headers.png&quot; /&gt;
+&lt;p&gt;&lt;img src=&quot;/images/section_headers.png&quot; alt=&quot;section_headers.png&quot; /&gt;
 &lt;em&gt;Section Headers&lt;/em&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;calculating-file-offset-address-from-rva&quot;&gt;Calculating File Offset Address from RVA&lt;/h2&gt;
@@ -100,7 +100,7 @@ FileOffsetAddress = 0x11a8
 
 &lt;p&gt;Checking the first entry in the imports tab in PE-bear should confirm our calculations!&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/import_calculation.png&quot; alt=&quot;import_calculation.png&quot; /&gt;
+&lt;p&gt;&lt;img src=&quot;/images/import_calculation.png&quot; alt=&quot;import_calculation.png&quot; /&gt;
 &lt;em&gt;At file offset 0x11a8 lies the first import entry&lt;/em&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;studying-important-structs-related-to-imports&quot;&gt;Studying Important Structs related to Imports&lt;/h2&gt;
@@ -109,11 +109,11 @@ FileOffsetAddress = 0x11a8
 
 &lt;p&gt;The following image is taken from the aforementioned PDF&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/important_data_structures.png&quot; alt=&quot;important_data_structures.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/important_data_structures.png&quot; alt=&quot;important_data_structures.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Using this data structure, we should be able to parse and get back the same result.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/image_import_descriptor.png&quot; alt=&quot;image_import_descriptor.png&quot; /&gt;
+&lt;p&gt;&lt;img src=&quot;/images/image_import_descriptor.png&quot; alt=&quot;image_import_descriptor.png&quot; /&gt;
 &lt;em&gt;Mapping from memory to structure&lt;/em&gt;&lt;/p&gt;
 
 &lt;p&gt;Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounde IAT.&lt;/p&gt;
@@ -127,11 +127,11 @@ FileOffsetAddress =  0x1000 + ( 0x242c - 0x2000 )
 FileOffsetAddress = 0x142c
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/rva_name.png&quot; alt=&quot;rva_name.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/rva_name.png&quot; alt=&quot;rva_name.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Finally, to list out the import functions, we can trace through the Original first Thunk. Since we have the value fo 0x223c, we have the FileOffsetAddress of 0x123c which contains the RVA of 0x2360 which points to IMAGE_IMPORT_BY_NAME structure with the hint and byte pointer field at 0x1360!&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/import_name.png&quot; alt=&quot;import_name.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/import_name.png&quot; alt=&quot;import_name.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;The hint in this data structure is actually a “hint” to the loader as to what ordinal of the imported API might be. Also, the reason why we can tell that the RVA of 0x2360 points to the IMAGE_THUNK_ DATA value is because the high bit of the IMAGE_THUNK_DATA value is not set. If it is set, the bottom 31 bits (or 63 bits for a 64-bit executable) is treated as an ordinal value.&lt;/p&gt;
 
@@ -167,27 +167,27 @@ FileOffsetAddress = 0x142c
 
 &lt;p&gt;First thing I did was to change the name using CFF Explorer. I changed the name of CryptEncrypt to CryptDecrypt.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/alter_to_decrypt.png&quot; alt=&quot;alter_to_decrypt.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/alter_to_decrypt.png&quot; alt=&quot;alter_to_decrypt.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;We can now load the binary into IDA and see the changes.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/now_decrypt.png&quot; alt=&quot;now_decrypt.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/now_decrypt.png&quot; alt=&quot;now_decrypt.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Since that CryptDecrypt has the exact same parameters except for the absence of the parameter &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dwBufLen&lt;/code&gt;, we can replace the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;push eax&lt;/code&gt; instruction with NOPs at address 0040165A.&lt;/p&gt;
 
 &lt;p&gt;Let’s patch it in x32dbg and see the result. Remember to change the volume serial number with VolumeId64.exe from sysinternal tools suite. Also, put the BusinessPapers.doc file into the Briefcase as well for decryption.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/nop.png&quot; alt=&quot;nop.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/nop.png&quot; alt=&quot;nop.png&quot; /&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;flagging&quot;&gt;Flagging&lt;/h2&gt;
 
 &lt;p&gt;After running the decryption, we can now double check the BusinessPapers.doc in HxD. We see that it has the JFIF header with Exif information which suggest strongly that this is a JPG file.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/HxD_output_jfif.png&quot; alt=&quot;HxD_output_jfif.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/HxD_output_jfif.png&quot; alt=&quot;HxD_output_jfif.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Changing the extension to Jpg and we should see the following image containing the flag.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;images/flag.png&quot; alt=&quot;flag.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/flag.png&quot; alt=&quot;flag.png&quot; /&gt;&lt;/p&gt;
 
 &lt;hr /&gt;
 

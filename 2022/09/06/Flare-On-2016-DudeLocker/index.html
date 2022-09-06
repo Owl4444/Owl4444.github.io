@@ -291,10 +291,10 @@
 
 <h2 id="description">Description</h2>
 
-<p>Recently, I was tasked to try out challenge 2 <code class="language-plaintext highlighter-rouge">DudeLocker</code> in Flare-on from the year 2016. Since there are already many writeups, this post aims to help the reader understand a concept that was really hazy to me. The concept that I have questions about is how PE files deal with import functions and how they resolve them from the <a href="https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#import-address-table">Import Address Table</a> (IAT).</p>
+<p>Recently, I was tasked to try out challenge 2 <code class="language-plaintext highlighter-rouge">DudeLocker</code> in Flare-on from the year 2016. Since there are already many writeups, this post aims to help the reader understand a concept that was really hazy to me. The concept that I have questions about is how PE files deal with import functions and how they resolve them.</p>
 
 <h2 id="tldr-dudelocker">TL;DR (DudeLocker)</h2>
-<p>What DudeLocker does is that it will attempt to generate the IV and Key and use that for AES-CBC Mode Cipher to every document in the Briefcase folder stored in the Desktop. However, what we really want is for the program to decrypt the file instead to get back the original jpg file content. Thus, instead of doing those manually, we can attempt to decrypt instead of encrypting the contents since we are dealing with block cipher with the same generated key.</p>
+<p>What DudeLocker does is that it will attempt to generate the IV and Key and use that for AES-CBC Mode Cipher to encrypt every document in the Briefcase folder stored in the Desktop. However, what we really want is decrypt the file instead to get back the original jpg file content. One of the  ways to do so is to mess with the Import descriptors and calling CryptDecrypt rather than CryptEncrypt. This will still work because AES-CBC uses symmetric encryption.</p>
 
 <p>If you have not tried this yet, you can download the challenge files from <a href="https://github.com/fareedfauzi/Flare-On-Challenges/blob/master/Challenges/2016/Flare-on%203/2/">github</a>. Give it a try and you can try to follow along as well!</p>
 

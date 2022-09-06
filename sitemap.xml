@@ -1,22 +1,29 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd" xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 <url>
-<loc>http://http//45.77.171.19/2022/09/05/Welcome-to-my-blog-everyone/</loc>
+<loc>https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</loc>
 <lastmod>2022-09-05T21:08:00+00:00</lastmod>
 </url>
 <url>
-<loc>http://http//45.77.171.19/about/</loc>
+<loc>https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</loc>
+<lastmod>2022-09-06T20:23:00+00:00</lastmod>
 </url>
 <url>
-<loc>http://http//45.77.171.19/contact/</loc>
+<loc>https://owl4444.github.io/about/</loc>
 </url>
 <url>
-<loc>http://http//45.77.171.19/</loc>
+<loc>https://owl4444.github.io/contact/</loc>
 </url>
 <url>
-<loc>http://http//45.77.171.19/styleguide/</loc>
+<loc>https://owl4444.github.io/</loc>
 </url>
 <url>
-<loc>http://http//45.77.171.19/tag/welcome/</loc>
+<loc>https://owl4444.github.io/styleguide/</loc>
+</url>
+<url>
+<loc>https://owl4444.github.io/tag/welcome/</loc>
+</url>
+<url>
+<loc>https://owl4444.github.io/tag/writeups/</loc>
 </url>
 </urlset>

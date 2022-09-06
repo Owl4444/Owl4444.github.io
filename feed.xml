@@ -3,11 +3,203 @@
   <channel>
     <title>Malware Owl</title>
     <description>Malware Owl Blog on the Journey</description>
-    <link>http://http://45.77.171.19/</link>
-    <atom:link href="http://http//45.77.171.19/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 05 Sep 2022 22:05:49 +0000</pubDate>
-    <lastBuildDate>Mon, 05 Sep 2022 22:05:49 +0000</lastBuildDate>
+    <link>https://Owl4444.github.io/</link>
+    <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Tue, 06 Sep 2022 20:56:08 +0000</pubDate>
+    <lastBuildDate>Tue, 06 Sep 2022 20:56:08 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
+    
+      <item>
+        <title>DudeLocker (Flare-on 2016) - RVA and Import Descriptors</title>
+        <description>&lt;h1 id=&quot;dudelocker&quot;&gt;DudeLocker&lt;/h1&gt;
+
+&lt;h2 id=&quot;description&quot;&gt;Description&lt;/h2&gt;
+
+&lt;p&gt;Recently, I was tasked to try out challenge 2 &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DudeLocker&lt;/code&gt; in Flare-on from the year 2016. Since there are already many writeups, this post aims to help the reader understand a concept that was really hazy to me. The concept that I have questions about is how PE files deal with import functions and how they resolve them from the &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/win32/debug/pe-format#import-address-table&quot;&gt;Import Address Table&lt;/a&gt; (IAT).&lt;/p&gt;
+
+&lt;h2 id=&quot;tldr-dudelocker&quot;&gt;TL;DR (DudeLocker)&lt;/h2&gt;
+&lt;p&gt;What DudeLocker does is that it will attempt to generate the IV and Key and use that for AES-CBC Mode Cipher to every document in the Briefcase folder stored in the Desktop. However, what we really want is for the program to decrypt the file instead to get back the original jpg file content. Thus, instead of doing those manually, we can attempt to decrypt instead of encrypting the contents since we are dealing with block cipher with the same generated key.&lt;/p&gt;
+
+&lt;p&gt;If you have not tried this yet, you can download the challenge files from &lt;a href=&quot;https://github.com/fareedfauzi/Flare-On-Challenges/blob/master/Challenges/2016/Flare-on%203/2/&quot;&gt;github&lt;/a&gt;. Give it a try and you can try to follow along as well!&lt;/p&gt;
+
+&lt;h2 id=&quot;finding-imports-from-pe-file-headers&quot;&gt;Finding Imports from PE File Headers&lt;/h2&gt;
+
+&lt;p&gt;During this time, I wil be using &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pe-bear&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pestudio&lt;/code&gt; to inspect the PE File structure of the ransomware. Within the NT Headers, there is an &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Optional Header&lt;/code&gt; that points to the Import Directory at raw file offset 0x160 which contains the address 0x21A8.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/import_directory_RVA.png&quot; alt=&quot;import_directory_RVA.png&quot; /&gt;
+&lt;em&gt;Address of Import Directory&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;While this address looks pretty much normal, however, when we look at the data in the last section, realize that there is no such address as it ends at 0x19FF. WHAT?!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/end_of_data.png&quot; alt=&quot;end_of_data.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;To understand this, we have to understand what Relative Virtual Address is! According to &lt;a href=&quot;https://en.wikipedia.org/wiki/COFF&quot;&gt;Wikipedia&lt;/a&gt; :&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Relative virtual addresses (RVAs) are not to be confused with standard virtual addresses. A relative virtual address is the virtual address of an object from the file once it is loaded into memory, minus the base address of the file image.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;That said, to find out the directory information from the PE File, we need to calculate the File Offset Address (FOA) so that we can parse the data.&lt;/p&gt;
+
+&lt;p&gt;Before going deeper, let us first take a look and understand the Section Headers that can be seen in PE-bear.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/section_headers.png&quot; alt=&quot;section_headers.png&quot; /&gt;
+&lt;em&gt;Section Headers&lt;/em&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;calculating-file-offset-address-from-rva&quot;&gt;Calculating File Offset Address from RVA&lt;/h2&gt;
+
+&lt;p&gt;We are interested in the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.rdata&lt;/code&gt; section since the the RVA of value 0x21A8 is within range. We see that there are quite a number of fields in this Section Headers.&lt;/p&gt;
+
+&lt;p&gt;This actually corresponds with the &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_section_header&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_IMAGE_SECTION_HEADER&lt;/code&gt;&lt;/a&gt; struct.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_IMAGE_SECTION_HEADER&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IMAGE_SIZEOF_SHORT_NAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;union&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PhysicalAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;VirtualSize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Misc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;VirtualAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;SizeOfRawData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PointerToRawData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PointerToRelocations&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PointerToLinenumbers&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;NumberOfRelocations&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;NumberOfLinenumbers&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Characteristics&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_SECTION_HEADER&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_SECTION_HEADER&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The two main fields that we are interested in are :&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Virtual Address
+    &lt;ul&gt;
+      &lt;li&gt;the address of the &lt;strong&gt;FIRST&lt;/strong&gt; byte of the section when loaded into memory, relative to the image base!&lt;/li&gt;
+      &lt;li&gt;In this case, when DudeLocker is loaded in memory, the first byte of the .rdata section is 0x2000 excluding the image base.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;PointerToRawData
+    &lt;ul&gt;
+      &lt;li&gt;A file pointer to the first page within the COFF file, referring to the PE file.&lt;/li&gt;
+      &lt;li&gt;In this case,  Raw Data of .rdata section is at offset 0x1000 of the PE file.&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Now, the value 0x21A8 represents the Relative Virtual Address (RVA) of the Import Directory which refers to the address when loaded in memory at that specific location relative to the image base.&lt;/p&gt;
+
+&lt;p&gt;Therefore, to figure out the File Offset Address with relations to the Relative Virtual Address (RVA), we can do the following calculation.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+
+FileOffsetAddress =  0x1000 + ( 0x21A8 - 0x2000 )
+
+FileOffsetAddress = 0x11a8
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;(RVA - VirtualAddressOfSection)&lt;/code&gt; acts like the delta between the address and the first byte which will then be added to Pointer to Raw Data where the first byte of that section is located in the PE File. Thus, getting the File offset Address.&lt;/p&gt;
+
+&lt;p&gt;Checking the first entry in the imports tab in PE-bear should confirm our calculations!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/import_calculation.png&quot; alt=&quot;import_calculation.png&quot; /&gt;
+&lt;em&gt;At file offset 0x11a8 lies the first import entry&lt;/em&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;studying-important-structs-related-to-imports&quot;&gt;Studying Important Structs related to Imports&lt;/h2&gt;
+
+&lt;p&gt;Referencing this &lt;a href=&quot;http://www.cse.tkk.fi/fi/opinnot/T-110.6220/2010_Spring_Malware_Analysis_and_Antivirus_Tchnologies/luennot-files/Erdelyi-Reverse_engineering_2.pdf&quot;&gt;PDF&lt;/a&gt;, the Import Descriptors contain the fields as seen in the previous image. &lt;a href=&quot;https://docs.microsoft.com/en-us/archive/msdn-magazine/2002/march/inside-windows-an-in-depth-look-into-the-win32-portable-executable-file-format-part-2&quot;&gt;This old MSDN Post&lt;/a&gt; supports that as well. It turns out there are different ways to resolve the imported function address. For this post, I will only focus on resolution when bound value is set to FALSE.&lt;/p&gt;
+
+&lt;p&gt;The following image is taken from the aforementioned PDF&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/important_data_structures.png&quot; alt=&quot;important_data_structures.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Using this data structure, we should be able to parse and get back the same result.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/image_import_descriptor.png&quot; alt=&quot;image_import_descriptor.png&quot; /&gt;
+&lt;em&gt;Mapping from memory to structure&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounde IAT.&lt;/p&gt;
+
+&lt;p&gt;Notice how the value of NameRVA 0x242c gets resolved to the symbol name &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;KERNEL32.dll&lt;/code&gt;? We can confirm that with the same calculations as before to find out the File Offset Address.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+
+FileOffsetAddress =  0x1000 + ( 0x242c - 0x2000 )
+
+FileOffsetAddress = 0x142c
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/rva_name.png&quot; alt=&quot;rva_name.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Finally, to list out the import functions, we can trace through the Original first Thunk. Since we have the value fo 0x223c, we have the FileOffsetAddress of 0x123c which contains the RVA of 0x2360 which points to IMAGE_IMPORT_BY_NAME structure with the hint and byte pointer field at 0x1360!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/import_name.png&quot; alt=&quot;import_name.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The hint in this data structure is actually a “hint” to the loader as to what ordinal of the imported API might be. Also, the reason why we can tell that the RVA of 0x2360 points to the IMAGE_THUNK_ DATA value is because the high bit of the IMAGE_THUNK_DATA value is not set. If it is set, the bottom 31 bits (or 63 bits for a 64-bit executable) is treated as an ordinal value.&lt;/p&gt;
+
+&lt;p&gt;Another important detail is that this “hint” is there to help improve performance when attempting to resolve a function, however, if it is unable to find the function, it will still search the normal way as before. This means that if we were to change the name of the function, the hint may fail and still continue to search up the DLL export table.&lt;/p&gt;
+
+&lt;h1 id=&quot;changing-cryptencrypt-to-cryptdecrypt&quot;&gt;Changing CryptEncrypt to CryptDecrypt&lt;/h1&gt;
+
+&lt;p&gt;If you have done the challenge, you would have been familiar with the following two functions.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c1&quot;&gt;//  7 parameters&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;BOOL&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;CryptEncrypt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;HCRYPTKEY&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;hKey&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;HCRYPTHASH&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hHash&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;BOOL&lt;/span&gt;       &lt;span class=&quot;n&quot;&gt;Final&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;dwFlags&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;       &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pbData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;      &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pdwDataLen&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;dwBufLen&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+&lt;span class=&quot;c1&quot;&gt;// 6 parameters&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;BOOL&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;CryptDecrypt&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;HCRYPTKEY&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;hKey&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;HCRYPTHASH&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hHash&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;BOOL&lt;/span&gt;       &lt;span class=&quot;n&quot;&gt;Final&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;dwFlags&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;       &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pbData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;      &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pdwDataLen&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;For this, since we are now familiar with how the program resolves the name, we can attempt to find and patch the binary so that.&lt;/p&gt;
+
+&lt;p&gt;First thing I did was to change the name using CFF Explorer. I changed the name of CryptEncrypt to CryptDecrypt.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/alter_to_decrypt.png&quot; alt=&quot;alter_to_decrypt.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We can now load the binary into IDA and see the changes.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/now_decrypt.png&quot; alt=&quot;now_decrypt.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Since that CryptDecrypt has the exact same parameters except for the absence of the parameter &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;dwBufLen&lt;/code&gt;, we can replace the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;push eax&lt;/code&gt; instruction with NOPs at address 0040165A.&lt;/p&gt;
+
+&lt;p&gt;Let’s patch it in x32dbg and see the result. Remember to change the volume serial number with VolumeId64.exe from sysinternal tools suite. Also, put the BusinessPapers.doc file into the Briefcase as well for decryption.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/nop.png&quot; alt=&quot;nop.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;flagging&quot;&gt;Flagging&lt;/h2&gt;
+
+&lt;p&gt;After running the decryption, we can now double check the BusinessPapers.doc in HxD. We see that it has the JFIF header with Exif information which suggest strongly that this is a JPG file.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/HxD_output_jfif.png&quot; alt=&quot;HxD_output_jfif.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Changing the extension to Jpg and we should see the following image containing the flag.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;images/flareon2016_challenge2/flag.png&quot; alt=&quot;flag.png&quot; /&gt;&lt;/p&gt;
+
+&lt;hr /&gt;
+
+</description>
+        <pubDate>Tue, 06 Sep 2022 20:23:00 +0000</pubDate>
+        <link>https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</guid>
+        
+        <category>Writeups</category>
+        
+        
+      </item>
     
       <item>
         <title>Welcome to my Blog everyone !</title>
@@ -25,8 +217,8 @@
 
 </description>
         <pubDate>Mon, 05 Sep 2022 21:08:00 +0000</pubDate>
-        <link>http://http//45.77.171.19/2022/09/05/Welcome-to-my-blog-everyone/</link>
-        <guid isPermaLink="true">http://http//45.77.171.19/2022/09/05/Welcome-to-my-blog-everyone/</guid>
+        <link>https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</guid>
         
         <category>Welcome</category>
         

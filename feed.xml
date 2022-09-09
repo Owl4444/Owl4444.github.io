@@ -5,21 +5,23 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 07 Sep 2022 21:31:55 +0000</pubDate>
-    <lastBuildDate>Wed, 07 Sep 2022 21:31:55 +0000</lastBuildDate>
+    <pubDate>Fri, 09 Sep 2022 14:48:20 +0000</pubDate>
+    <lastBuildDate>Fri, 09 Sep 2022 14:48:20 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
         <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</title>
-        <description>&lt;h1 id=&quot;writing-64-bits-windows-10-shellcode-calcexe---part-1&quot;&gt;Writing 64 bits Windows 10 Shellcode (Calc.exe) - Part 1&lt;/h1&gt;
+        <description>&lt;h1 id=&quot;understanding-64-bits-windows-10-shellcode-calcexe---part-1&quot;&gt;Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1&lt;/h1&gt;
 
 &lt;h2 id=&quot;description&quot;&gt;Description&lt;/h2&gt;
 
 &lt;p&gt;As malware analyst or red teamer, we should be able to understand some of the more common shellcodes that are written. It also helps us understand what are some of the possiblities out there that can help malware authors run custom payloads as well. Shellcode written can also be used for exploits to run code in the context of the exploited program. It can also be used as payload injection during process injection and more.&lt;/p&gt;
 
-&lt;p&gt;In this post, we’ll look at how to analyze shellcode written in x86-64 assembly language. We’ll begin by going through the intuition of the shellcode before looking through the shellcode as seen in &lt;a href=&quot;https://www.exploit-db.com/shellcodes/49819&quot;&gt;exploit-db&lt;/a&gt;. We will cover how we go from Thread Environment Block (TEB) structure to finding out the base address of target DLL. We will also see how to derive the WinExec function pointer which is then used to spawn our calculator.&lt;/p&gt;
+&lt;p&gt;In this post, we will begin by going through the intuition of the shellcode before going on to write our own.  We will cover how we go from Thread Environment Block (TEB) structure to finding out the base address of target DLL. We will also see how to derive the WinExec function pointer which is then used to spawn our calculator or actually any program that we want to run. For visual learners, I have created diagrams to help understand what we are about to go through for the rest of the post.&lt;/p&gt;
 
-&lt;h2 id=&quot;getting-base-addresses-of-loaded-modules&quot;&gt;Getting Base Addresses of Loaded Modules&lt;/h2&gt;
+&lt;h3 id=&quot;getting-base-addresses-of-loaded-modules&quot;&gt;Getting Base Addresses of Loaded Modules&lt;/h3&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/PEB_to_entry.png&quot; alt=&quot;PEB_to_entry.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;The Thread Environment Block is a data structure that stores information about the currently running thread. If the shellcode is being run in the process, getting this information allows us to access and traverse through other data structures to achieve our goal. The following shows the data structure of the TEB in WinDbg. Using the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;!teb&lt;/code&gt; command, we can see the location of the TEB of the current process.&lt;/p&gt;
 
@@ -33,10 +35,12 @@
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/peb_structure.png&quot; alt=&quot;peb_structure.png&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;The get the loaded data, let me bring your attention to offset 0x18 of the PEB structure which corresponds to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Ldr&lt;/code&gt; field of type &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/win32/api/winternl/ns-winternl-peb_ldr_data&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_PEB_LDR_DATA&lt;/code&gt;&lt;/a&gt; .&lt;/p&gt;
+&lt;p&gt;The get the loaded data, let me bring your attention to offset 0x18 of the PEB structure which corresponds to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Ldr&lt;/code&gt; field of type &lt;a href=&quot;https://docs.microsoft.com/en-us/windows/win32/api/winternl/ns-winternl-peb_ldr_data&quot;&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_PEB_LDR_DATA&lt;/code&gt;&lt;/a&gt;.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/peb_ldr_data.png&quot; alt=&quot;peb_ldr_data.png&quot; /&gt;
-&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_PEB_LDR_DATA&lt;/code&gt; contains a field called &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;InMemoryOrderModuleList&lt;/code&gt; which contains a pointer to the head of a doubly-linked list.  The head of the doubly linked list is a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LIST_ENTRY&lt;/code&gt; which contains &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Flink&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Blink&lt;/code&gt; so that it is possible to traverse and get information of loaded modules.&lt;/p&gt;
+&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_PEB_LDR_DATA&lt;/code&gt; contains a field called &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;InMemoryOrderModuleList&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;InMemoryOrderModuleList&lt;/code&gt; contains a pointer to the head of a doubly-linked list.  The head of the doubly linked list is a &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LIST_ENTRY&lt;/code&gt; which contains &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Flink&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Blink&lt;/code&gt; so that it is possible to traverse and get information of loaded modules.&lt;/p&gt;
 
 &lt;p&gt;An important note is that, the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Flink&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Blink&lt;/code&gt; pointer lives within the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LDR_DATA_TABLE_ENTRY&lt;/code&gt; structure.&lt;/p&gt;
 
@@ -70,36 +74,60 @@
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/kernel32dllPE.png&quot; alt=&quot;kernel32dllPE.png&quot; /&gt;&lt;/p&gt;
 
-&lt;h2 id=&quot;locating-the-export-table&quot;&gt;Locating the Export Table&lt;/h2&gt;
+&lt;h3 id=&quot;locating-the-export-table&quot;&gt;Locating the Export Table&lt;/h3&gt;
 
-&lt;p&gt;To help with visualization, I will be using PE-Bear to help with offsets. Looking at the DOS header, we know that at offset 0x3c, it contains the file offset which points to the new exe header which contains “PE” value.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/diagramexporttable.png&quot; alt=&quot;diagramexporttable.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Now that we have obtained the DllBase Virtual Address of Kernel32.dll which is loaded in memory, we can now attempt to traverse the PE File data structures to locate the export table.&lt;/p&gt;
+
+&lt;p&gt;With the help of PE-Bear, we can further affirm what we see in the figure. Looking at the DOS header, we know that at offset 0x3c, it contains the file offset which points to the new exe header which contains “PE” value.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/newexeheader.png&quot; alt=&quot;newexeheader.png&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;Next, at offset 0x180 (0x88 bytes after the new EXE header), it contains the Relative Virtual Address(RVA) 0x980a0 of the export directory from which we want to find the WinExec function from. To do a quick calculation, the file offset address (FOA) is ` raw Address + ( RVA - VirtualAddress  ) = 0x7e000 + 0x980a0 - 0x7e000 = 0x980a0&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;. You can check out this [post](https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/) to learn more about calculating File Offset Address. We can get the values from the &lt;/code&gt;.rdata` in the Section Headers.&lt;/p&gt;
+&lt;p&gt;Next, at offset 0x180 (0x88 bytes after the new EXE header), it contains the Relative Virtual Address(RVA) 0x980a0 of the export directory from which we want to find the WinExec function from. To do a quick calculation, the file offset address (FOA) is ` raw Address + ( RVA - VirtualAddress  ) = 0x7e000 + 0x980a0 - 0x7e000 = 0x980a0&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;. Though not necessary, you can check out this [post](https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/) to learn more about calculating File Offset Address. We can get the values from the &lt;/code&gt;.rdata` in the Section Headers. Furthermore, to get the Virtual Address, we need to add the DllBase Virtual address with the RVA since we are talking about Virtual address instead of raw file offset.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/section_headers.png&quot; alt=&quot;section_headers.png&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;Now, if we check the exports tab, we should see 0x980a0 being the offset.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/kernel32dllexporttable.png&quot; alt=&quot;kernel32dllexporttable.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;Now, if we check the exports tab, we should see 0x980a0 being the offset. 
+&lt;img src=&quot;/images/windows10shellcodePart1/kernel32dllexporttable.png&quot; alt=&quot;kernel32dllexporttable.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;One thing we can learn from looking at the exports function is that each function name has an ordinal mapped to it. For instance, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;AcquireSRWLockExclusive&lt;/code&gt; has ordinal value of 1 and for &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WinExec&lt;/code&gt; has ordinal value of 0x62B in this executable.&lt;/p&gt;
 
-&lt;h2 id=&quot;iterating-and-obtaining-the-function-address&quot;&gt;Iterating and Obtaining the Function Address&lt;/h2&gt;
+&lt;h3 id=&quot;iterating-and-obtaining-the-function-address&quot;&gt;Iterating and Obtaining the Function Address&lt;/h3&gt;
 
-&lt;p&gt;The important values to take note of are :&lt;/p&gt;
+&lt;p&gt;To understand how this work, we need to understand what Ordinal value is used for. It basically acts like a small redirection or index that maps function name to the function address. The ordinal value (like the index) is being stored in a separate table altogether starting with the value of 1 and incrementing in steps of 1.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/diagram_shellcode_end.png&quot; alt=&quot;diagram_shellcode_end.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Note that at fixed offsets from the start of the export table, we can get RVA to different tables. They are :&lt;/p&gt;
+
 &lt;ol&gt;
-  &lt;li&gt;Number of functions -&amp;gt; 0x14 + Virtual Address of Export Table&lt;/li&gt;
-  &lt;li&gt;RVA of Export Table -&amp;gt; (0x78 bytes after the new EXE header) + DllBase&lt;/li&gt;
   &lt;li&gt;RVA of Function Table -&amp;gt; 0x1c + (Virtual Address of Export Table)&lt;/li&gt;
   &lt;li&gt;RVA of Name Table -&amp;gt; 0x20 + (Virtual Address of Export Table)&lt;/li&gt;
   &lt;li&gt;RVA of Name Ordinal Table -&amp;gt; 0x24 + (Virtual Address of Export Table)&lt;/li&gt;
 &lt;/ol&gt;
 
-&lt;p&gt;With those values, we can then start to find the Virtual addresses of the tables by adding the image base to the RVA. After that, we can loop through the function name pointer table. When the “WinExec” string matches the function name table entry, we record the counter which correspond to the Ordinal value. With that value, we can then use that to find the function address from the function address table.&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/exporttable.png&quot; alt=&quot;exporttable.png&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;Finally, once we get the function address, we can make use of the function to spawn calc by pushing string onto the stack and getting the stack pointer value which would be used for the WinExec Function.&lt;/p&gt;
+&lt;p&gt;To calculate the virtual addresses for these tables, we simply add the DllBase address to it. The function table annotated here points to the RVA of functions. Name table here contains RVA to function names (This is where we want to look for WinExec function). Finally, the ordinal Table (Something we are not gonna really use) contains “indexes” as explained depending on the position of functions.&lt;/p&gt;
+
+&lt;p&gt;That said, to find the function address of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WinExec&lt;/code&gt;, we need to get the position or ordinal of “WinExec” String in the Function Name Table. We do this by comparind strings from the first position of the function name table till we find the “WinExec” string that we desire.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/FunctionNameTable.png&quot; alt=&quot;FunctionNameTable.png&quot; /&gt;
+&lt;em&gt;Function Name Table&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;The position is annotated as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;N&lt;/code&gt; in the diagram since this value may change depending on versions of the module. The reason we mulitply by 4 is because the ordinal refers to the N’th element or index of 4 bytes (size of RVA value == DWORD). Finally, since we have the ordinal and that the ordinal table contains value from position 0 (rather than 1 like ordinal), we can effectively just subtract 1 from the ordinal value N.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/ordinal_to_functionaddress.png&quot; alt=&quot;ordinal_to_functionaddress.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Once again, we can now use the new position (N-1) to find the RVA of the function address that we are interested in who Virtual Address can be calculated again by adding the DllBase Address.&lt;/p&gt;
+
+&lt;p&gt;Here is the full picture of the illustration t:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart1/Windows_Shellcoding_flow_dark.png&quot; alt=&quot;Windows_Shellcoding_flow_dark.png&quot; /&gt;
+&lt;em&gt;Windows Shellcoding x64 Illustration- Calc.exe&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;In the second part of the understand Windwows Shellcode, we will be writing the Shellcode using this flow diagram. Hopefully, this will be useful for the readers.&lt;/p&gt;
 
 &lt;hr /&gt;
 

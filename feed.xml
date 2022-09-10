@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 10 Sep 2022 10:44:22 +0000</pubDate>
-    <lastBuildDate>Sat, 10 Sep 2022 10:44:22 +0000</lastBuildDate>
+    <pubDate>Sat, 10 Sep 2022 17:08:43 +0000</pubDate>
+    <lastBuildDate>Sat, 10 Sep 2022 17:08:43 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -48,16 +48,16 @@ Right click on the project root folder (Not the solution) and select &lt;code cl
 
 &lt;p&gt;main.c :&lt;/p&gt;
 
-&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;#include&lt;/span&gt;&lt;span class=&quot;cpf&quot;&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
-&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;extern&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;shellcoding&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// return the value 0x1337&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;#include&amp;lt;stdio.h&amp;gt;
 
-&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;**&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcoding&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;%x&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
-    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+extern int shellcoding(); // return the value 0x1337
+
+int main(int argc, char** argv) {
+    int x = shellcoding();
+    printf(&quot;%x\n&quot;, x);
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;hr /&gt;
 
@@ -112,8 +112,8 @@ end
 
 &lt;p&gt;Since we are now at the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LDR_DATA_TABLE_ENTRY&lt;/code&gt; of kernel32.dll, we will want to record the DllBase for calculation of Virtual Addresses from RVA values later on. This DllBase contains the pointer to the loaded DLL which means that we should also be able to see the MZ Signature in memory.&lt;/p&gt;
 
-&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    mov rax, qword ptr[rax+30h] ; RAX = The Dll base with MZ Signature
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov rax, qword ptr[rax+30h] ; RAX = The Dll base with MZ Signature
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;The next thing to do is to look for the export table. According to the chart, we have to first find the offset of the New EXE Header which is at offset 0x3c from the dll base address. After that, at fixed offset of 0x88, we will be able to find and calculate the Virtual Address of the Export Table.&lt;/p&gt;
 
@@ -155,18 +155,18 @@ end
 &lt;p&gt;Since this is a 64 bit shellcode and the length “WinExec” is smaller than 8 bytes, we can just store the bytes into a register and push it onto the stack. Of course, we will need to push the string terminator to the stack first as well. Note that the bytes of “WinExec” should be in little Endian format.&lt;/p&gt;
 
 &lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    push rcx ; String terminator
-    mov rcx, 636578456e6957FFh		; WinExec string with FF which we will shift to fill in space
+    mov rcx, 636578456e6957FFh	; WinExec string with FF which we will shift to fill in space
     shr rcx, 8
-    push rcx						; Push the string value onto the stack
-    push rsp						; stack address to targeted function name &quot;WinExec&quot;
+    push rcx			; Push the string value onto the stack
+    push rsp			; stack address to targeted function name &quot;WinExec&quot;
 
     xor rcx, rcx
     mov cl, 07h;; length of the string &quot;WinExec&quot;
-	push rcx                        ; push on to the stack so I can group the variables together for easier reference
+	push rcx                ; push on to the stack so I can group the variables together for easier reference
 
-    pop r8							; &amp;lt;----- Function name Length and the counter
-    pop r9							; &amp;lt;----- String Address to WinExec string
-    xor r12, r12					; &amp;lt;----- used to store the ordinal N
+    pop r8			; &amp;lt;----- Function name Length and the counter
+    pop r9			; &amp;lt;----- String Address to WinExec string
+    xor r12, r12		; &amp;lt;----- used to store the ordinal N
 
 &lt;/code&gt;&lt;/pre&gt;
 
@@ -189,25 +189,24 @@ end
   &lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    IterateAndCompareFunctionName:
-
-        mov rcx, r8							; act as counter for the loop - re-update since rcx is decremented
-        mov rsi, r9							; putting the WinExec String pointer to the source register for repe cmpsb part
-        mov rdx, qword ptr [rbp-60h]		; Virtual Address of Name Table
-        mov edx, dword ptr [rdx + r12*4]	; RVA of nth string and *4 because that is the size of RVA in the name table 
-        inc r12								; increment the ordinal value
-        lea r11, [rdx+ rax]					; Virtual Address of first string  (RVA + Base Address)
-        mov rdi, r11						; Move that virtual address to destination register for repe cmpsb part
-        repe cmpsb							; compare the two strings between source and destination register for rcx number of bytes
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    IterateAndCompareFunctionName:
+        mov rcx, r8	; act as counter for the loop - re-update since rcx is decremented
+        mov rsi, r9     ; putting the WinExec String pointer to the source register for repe cmpsb part
+        mov rdx, qword ptr [rbp-60h]   ; Virtual Address of Name Table
+        mov edx, dword ptr [rdx + r12*4]  ; RVA of nth string and *4 because that is the size of RVA in the name table 
+        inc r12			; increment the ordinal value
+        lea r11, [rdx+ rax]	; Virtual Address of first string  (RVA + Base Address)
+        mov rdi, r11		; Move that virtual address to destination register for repe cmpsb part
+        repe cmpsb		; compare the two strings between source and destination register for rcx number of bytes
         jne IterateAndCompareFunctionName   ; jne if mismatch
 
     add rsp, 10h       ; do stack house keeping ( remember we pushed the string on to the stack ) 
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;Once we are out of the loop, this means that we have found the string and have the stored ordinal in register r12. It is now time to find the Virtual address of “WinExec” function. Here is the pseudocode that we are going to follow to find the Virtual Address of the “WinExec” Function.&lt;/p&gt;
 
-&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;WinExecVirtualAddress&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)((&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;functionAddressTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ordinal&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;DllBaseAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;void* WinExecVirtualAddress = *(DWORD*)((BYTE*)&amp;amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))  +  DllBaseAddress;
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;Converting that to asm, we have the following :&lt;/p&gt;
 
@@ -282,13 +281,13 @@ end
 
 &lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/destroyingstack.png&quot; alt=&quot;destroyingstack.png&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;To solve this, we should pivot the stack just a little.&lt;/p&gt;
+&lt;p&gt;To solve this, we should add a pivot to a lower stack location of 0x20&lt;/p&gt;
 
-&lt;div class=&quot;language-diff highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;pop rcx   ; pass in as first argumnent
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;pop rcx   ; pass in as first argumnent
 inc rdx   ; SW_SHOWNORMAL
-&lt;/span&gt;&lt;span class=&quot;gi&quot;&gt;+ sub rsp, 20h   ; Avoid messing with stack for the top 0x20 bytes
-&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;call rdi  ; Call WinExec
-&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
++ sub rsp, 20h   ; Avoid messing with stack for the top 0x20 bytes
+call rdi  ; Call WinExec
+&lt;/code&gt;&lt;/pre&gt;
 
 &lt;p&gt;With this, we should be successful in spawning a calc :D&lt;/p&gt;
 

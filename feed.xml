@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 10 Sep 2022 17:08:43 +0000</pubDate>
-    <lastBuildDate>Sat, 10 Sep 2022 17:08:43 +0000</lastBuildDate>
+    <pubDate>Sun, 18 Sep 2022 05:54:59 +0000</pubDate>
+    <lastBuildDate>Sun, 18 Sep 2022 05:54:59 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -555,7 +555,7 @@ FileOffsetAddress = 0x11a8
 &lt;p&gt;&lt;img src=&quot;/images/image_import_descriptor.png&quot; alt=&quot;image_import_descriptor.png&quot; /&gt;
 &lt;em&gt;Mapping from memory to structure&lt;/em&gt;&lt;/p&gt;
 
-&lt;p&gt;Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounde IAT.&lt;/p&gt;
+&lt;p&gt;Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounded IAT.&lt;/p&gt;
 
 &lt;p&gt;Notice how the value of NameRVA 0x242c gets resolved to the symbol name &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;KERNEL32.dll&lt;/code&gt;? We can confirm that with the same calculations as before to find out the File Offset Address.&lt;/p&gt;
 

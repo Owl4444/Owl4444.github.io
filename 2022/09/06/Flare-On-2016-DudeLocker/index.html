@@ -360,7 +360,7 @@ FileOffsetAddress = 0x11a8
 <p><img src="/images/image_import_descriptor.png" alt="image_import_descriptor.png" />
 <em>Mapping from memory to structure</em></p>
 
-<p>Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounde IAT.</p>
+<p>Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounded IAT.</p>
 
 <p>Notice how the value of NameRVA 0x242c gets resolved to the symbol name <code class="language-plaintext highlighter-rouge">KERNEL32.dll</code>? We can confirm that with the same calculations as before to find out the File Offset Address.</p>
 

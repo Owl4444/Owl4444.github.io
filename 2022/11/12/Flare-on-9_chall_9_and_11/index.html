@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Page not found</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>Flare-on 9 - Challenge 9 and 11</title>
+  <meta name='description' content='This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of chal...'>
 
-  <link rel="canonical" href="https://owl4444.github.io/404.html">
+  <link rel="canonical" href="https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -205,40 +205,556 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/140.jpg" alt="Page not found">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">Page not found</h1>
-    </div>
-  </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <div class="container">
-  <div class="row">
-    <div class="col col-12" style="text-align: center">
-      <h2 style="font-size: 48px">404</h2>
-      <p>The requested page could not be found.</p>
-      <p><a href="/" class="button button--middle" style="text-decoration: none; border: none">Back to the blog</a></p>
-      <hr>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                10 min read
+              
+              <time class="post__date"
+                datetime="2022-11-12T10:10:00+00:00">Nov 12, 2022</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">Flare-on 9 - Challenge 9 and 11</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                
+                <a href="/tag/CTF" class="post__tag">CTF</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="flare-on-9--challenge-9-and-11-">Flare-on 9 ( Challenge 9 and 11 )</h1>
+
+<h2 id="introduction"><strong>Introduction</strong></h2>
+<p>Flare-on 9 has officially been declared over!</p>
+
+<p><img src="/images/flareon9_9_11/ranking.png" alt="ranking.png" /></p>
+
+<p>This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
+
+<h2 id="challenge-9---encryptor"><strong>Challenge 9 - Encryptor</strong></h2>
+
+<p>This challenge took me quite a bit of time to realise what algorithms were used. The two main algorithms that we have to familiarize ourselves with are RSA and ChaCha20. ChaCha20’s key was used to encrypt files in the specified directory for files extension <code class="language-plaintext highlighter-rouge">.EncryptMe</code>. However, it is a common practice as well to encrypt the key with asymmetric encryption. In this case it was using RSA to do so.</p>
+
+<p>Here is the high level view of the main function with some reversing and renaming.</p>
+
+<p><img src="/images/flareon9_9_11/9_refactor_reversing.png" alt="9_refactor_reversing.png" /></p>
+
+<h3 id="rsa-initialization"><strong>RSA initialization</strong></h3>
+
+<p>The reason that there were much trouble in figuring out that this is RSA is due to the fact that c/c++ does not handle very huge numbers. Therefore, it makes sense to have functions that can deal with them. Since RSA is more secure with very very large random prime numbers, this code section would looked a little more cryptic than the formula we would see online.</p>
+
+<p>Here is the renamed <code class="language-plaintext highlighter-rouge">init_RSA_sub_4021d0</code> which is responsible for the initialization of RSA needed for asymmetric encryption.</p>
+
+<p><img src="/images/flareon9_9_11/RSA_pub_key_gen.png" alt="RSA_pub_key_gen.png" /></p>
+
+<p>In <code class="language-plaintext highlighter-rouge">init_RSA_sub_4021d0</code>, RSA key values including:</p>
+<ul>
+  <li><code class="language-plaintext highlighter-rouge">p</code></li>
+  <li><code class="language-plaintext highlighter-rouge">q</code></li>
+  <li><code class="language-plaintext highlighter-rouge">N</code> -&gt; <code class="language-plaintext highlighter-rouge">p*q</code></li>
+  <li>phi(N) -&gt;  <code class="language-plaintext highlighter-rouge">(p-1)*(q-1)</code></li>
+  <li>Decryption Key -&gt;  <code class="language-plaintext highlighter-rouge">d</code></li>
+  <li>Exponent <code class="language-plaintext highlighter-rouge">e</code> -&gt; 0x10001</li>
+</ul>
+
+<h3 id="encryptfunction"><strong>EncryptFunction</strong></h3>
+
+<p>Next, in the Encrypt function that I labeled in main function, we can see that chacha20 was used to encrypt the content of the sample buffer before the key is being encrypted with RSA.</p>
+
+<p><img src="/images/flareon9_9_11/encrypt_function.png" alt="encrypt_function.png" /></p>
+
+<h3 id="solution"><strong>Solution</strong></h3>
+
+<p>To solve this, we have to understand how RSA encryption algorithm works. To encrypt :</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Encryption
+cipher = (msg ^ exponent) % N
+
+# Decryption
+msg = (cipher ^ decrypt_key) % N
+</code></pre></div></div>
+
+<p>Additionally, in the ransom note given, we are given some hardcoded values, the N value, the encrypted content and the encrypted chacha20 key. However, during the encryption of the file content, the encryption was calculated mistakenly.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cipher = (msg ^ decrypt_key) % N
+</code></pre></div></div>
+
+<p>Instead of encryption, this has just turned into a “verification” where you encrypt the content with the decrypt key rather than the exponent to “prove” that you are the legitimate. But since this was done this way and that the exponent is hardcoded to 0x10001, we can decrypt with the following:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Chacha20_key = (enc_chacha20_key ^ exponent) % N
+</code></pre></div></div>
+
+<p>This works mainly because of the condition in RSA since the computation of exponent according to https://www.di-mgt.com.au/rsa_theory.html states that ` ed≡1(modϕ(n))` .
+This means that with the mistaken encryption</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cipher = (msg ^ decrypt_key) % N
+</code></pre></div></div>
+<p>Therefore, to get back <code class="language-plaintext highlighter-rouge">msg</code>, we need to xor the cipher with the hardcoded exponent</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Cipher ^ exponent = (msg ^ decrypt_key ^ exponent) % N
+Cipher ^ exponent = (msg ^ 1(modϕ(n))) % N
+(Cipher ^ exponent) % N = (msg ^ 1(modϕ(n))) % N
+(Cipher ^ exponent) % N = msg
+</code></pre></div></div>
+
+<p>Now to obtain the chacha20 keystream, we can make use of the given values from the ransom note.</p>
+
+<p><img src="/images/flareon9_9_11/obtained_chacha20_keystream.png" alt="obtained_chacha20_keystream.png" /></p>
+
+<p>The keystream shown in the above image should be read as little endian.</p>
+
+<p>Now that we get the decrypted keystream, we can start the actual decryption of the ` SuspiciousFile.txt.Encrypted` file. 
+What I did to decrypt the encrypted file was to manually insert the bytes of the initial state of ChaCha20 cipher.</p>
+
+<p><img src="/images/flareon9_9_11/chacha_20_keystreamformat.png" alt="chacha_20_keystreamformat.png" /></p>
+
+<p>During the actual solve, I have done this dynamically by replacing the data after the <code class="language-plaintext highlighter-rouge">expand 32-byte k</code> string. However, we can solve it in a script as well since the decrypted state contains both the key and the nonce.</p>
+
+<p><img src="/images/flareon9_9_11/solve_encryptor.png" alt="solve_encryptor.png" /></p>
+
+<p>Running this should give us the flag :</p>
+
+<blockquote>
+  <p><code class="language-plaintext highlighter-rouge">R$A_$16n1n6_15_0pp0$17e_0f_3ncryp710n@flare-on.com</code></p>
+</blockquote>
+
+<h3 id="troubles-faced"><em>Troubles Faced</em></h3>
+
+<p>One of the troubles I faced was confusing Salsa20 with ChaCha20 since this was the first time hearing about these. After googling the <code class="language-plaintext highlighter-rouge">expand 32-byte k</code> keyword, Salsa20 was the first algorithm I saw.</p>
+
+<p><img src="/images/flareon9_9_11/chacha_not_salsa.png" alt="chacha_not_salsa.png" /></p>
+
+<p>However, after some time, I noticed that during the hashing, the rotate values were not the same as the source implementation of salsa20. Therefore, it has to be ChaCha20 and they did match as seen in the following image.</p>
+
+<p><img src="/images/flareon9_9_11/hashingrol.png" alt="hashingrol.png" /></p>
+
+<p>As for RSA functions, it took some actual trial and errors to confirm them since I was only familiar with the simpler implementation of RSA and not considering generation of prime numbers and more.</p>
+
+<p>At the end of the challenge, though the logic is pretty easy to understand, I think that the thing about this is to be able to have some intuition about relevant functions.</p>
+
+<hr />
+
+<h2 id="challenge-11---the-challenge-that-shall-not-be-named">Challenge 11 - The challenge that shall not be named</h2>
+
+<p>This challenge took me a pretty long time due to quite a number of rabbit holes. Even so, I think that what I did was not the intended solution, that is by memory inspection to look for the flag which should also make sense once I explain things.</p>
+
+<p>This challenge binary is actually a PE32+ that was compiled via PyInstaller. Upon extraction with <code class="language-plaintext highlighter-rouge">pyinstxtractor</code>, we can guess that <code class="language-plaintext highlighter-rouge">11.pyc</code> is the main function for the executable. Using decompyle3, we can see that the decompiled shows that the main function was compiled with pyarmor in strong mode (the value 2 after the encrypted byte codes).</p>
+
+<p><img src="/images/flareon9_9_11/decompyled11_pyc.png" alt="decompyled11_pyc.png" /></p>
+
+<p>To run the main function, I have compiled python3.7.exe ( more about this later ) and placed it in the <code class="language-plaintext highlighter-rouge">PYZ-00.pyz_extracted</code> directory as the extracted data so that we can run python in it and that many of the modules are contained in the same directory. Running 11.pyc with python outside <code class="language-plaintext highlighter-rouge">PYZ-00.pyz_extracted</code> would give an error if run outside of this directory indicating that the module <code class="language-plaintext highlighter-rouge">_crypt</code> is not found.</p>
+
+<p>If you want to see the solution straight without going through what I have failed, then feel free to jump straight to the solution segment.</p>
+
+<h3 id="the-different-attempts"><strong>The Different Attempts</strong></h3>
+
+<p>At this point, I have tried quite a number of methods to attempt to get the bytecode.</p>
+
+<h4 id="dumping-python-serialized-code-object"><strong>Dumping Python serialized Code Object</strong></h4>
+
+<p>First thing I have tried was to look at <code class="language-plaintext highlighter-rouge">_PyEval_EvalFrameDefault</code> function in python 3.7 source. This is because pyarmor would decrypt the bytecode so that this function could run it before encrypting it back. I have also attempted to dump the bytecodes that were my separately compiled python executable ( the reason why I compiled Python 3.7)</p>
+
+<p><img src="/images/flareon9_9_11/pyeval_evalframedefault.png" alt="pyeval_evalframedefault.png" /></p>
+
+<p>In this added code, <code class="language-plaintext highlighter-rouge">PyMarsahl_WriteObjectToFile</code> function is used to serialize python object. The ones that we are interested are the ones that are the <code class="language-plaintext highlighter-rouge">PyCodeObject</code> or Code Objects as seen in http://www.goldsborough.me/python/low-level/2016/10/04/00-31-30-disassembling_python_bytecode/. However, after extracting all the bytecodes from both going on in 11.pyc in x64Dbg and the stored <code class="language-plaintext highlighter-rouge">code_object</code> text file, we see that the pyarmor code object was returned and I was not able to step into it just like that.</p>
+
+<p><img src="/images/flareon9_9_11/cannotstep.png" alt="cannotstep.png" /></p>
+
+<p>Furthermore, I read that pyarmor has their own implementation of PyEval which suggest that this method would not work or is just not marshallable back to its original code.</p>
+
+<h4 id="api-monitor"><strong>API Monitor</strong></h4>
+
+<p>It gave a really good overview (though not complete) about what the program was doing.</p>
+
+<p><img src="/images/flareon9_9_11/apiMonitor.png" alt="apiMonitor.png" /></p>
+
+<p>We first see that there is an attempt to resolve for <code class="language-plaintext highlighter-rouge">www.evil.flare-on.com</code>. After that, I have setup a server with resolvable IP address.</p>
+
+<p>Since, I did not know what the server actually does, i thought we have to interact with the server somehow and to do that, I have tried to create a server that can send bytes back assuming it is some form of a server.</p>
+
+<p><img src="/images/flareon9_9_11/server.png" alt="server.png" /></p>
+
+<p>With the server setup as follows and editing the Windows Host file, we receive the base64 encrypted flag via post request.</p>
+
+<p><img src="/images/flareon9_9_11/response.png" alt="response.png" /></p>
+
+<p>However, api monitor did not have any other information about this. But it did give us some important information about the program.</p>
+
+<h4 id="patching-pytransformpyd"><strong>Patching pytransform.pyd</strong></h4>
+
+<p>I was thinking of patching <code class="language-plaintext highlighter-rouge">pytransform.pyd</code> mainly because this is mostly responsible for the obfuscation and restriction of pyarmor code. While I think this is possible, I did not manage to successfully do this before getting the flag.  The restriction comes mainly from trying to edit pyarmor code.</p>
+
+<h3 id="solution---challenge-11"><strong>Solution - challenge 11</strong></h3>
+
+<p>Firstly, I have decompiled both 11.pyc and crypt.pyc (after noticing that it was pyarmor’d) into 11.py and crypt.py</p>
+
+<p>Next, I configured the environment so that it would run with the python.exe from the pyz_extracted folder. I have also used the following configuration in Visual Studio Code to allow stepping in of functions by setting <code class="language-plaintext highlighter-rouge">justMyCode</code>.</p>
+
+<p><img src="/images/flareon9_9_11/configurre_vsc.png" alt="configurre_vsc.png" /></p>
+
+<p>After some things were done, the “encrypted” flag was passed into base64 function.</p>
+
+<p><img src="/images/flareon9_9_11/base64.png" alt="base64.png" /></p>
+
+<p>After which requests.post function was used to send a POST request with the encrypted flag.</p>
+
+<p><img src="/images/flareon9_9_11/requests.png" alt="requests.png" /></p>
+
+<p>Once that is over, there no more operations done. Therefore, I made a guess that the flag generation has to be somewhere before the base64 operation. That said, I tried to do a memory dump to see if we can find the flag anywhere on the heap in WinDbg. Turns out after attaching to the python process, and searching in the heap with the following commands, it is possible to find the full flag within the memory space.
+Commands used were <code class="language-plaintext highlighter-rouge">!heap -a</code> and <code class="language-plaintext highlighter-rouge">s -a &lt;start address&gt; &lt;end address&gt; “@flare-on.com”</code> which shows positive traces of the flag and eventually, we can dump the flag out.</p>
+
+<p><img src="/images/flareon9_9_11/dumped_flag.png" alt="dumped_flag.png" /></p>
+
+<blockquote>
+  <p><code class="language-plaintext highlighter-rouge">Pyth0n_Prot3ction_tuRn3d_Up_t0_11@flare-on.com</code></p>
+</blockquote>
+
+<hr />
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>NGL, but after this challenge, I have invested quite a fair bit of time (24 days) to solving these challenges. I have definitely see some improvements that I have made over the past two to three years and am absolutely delighted with my progress. I would also like to thank the FLARE team for creating challenges like these. Not only is it fun, I did learn quite a lot also especially during challenge 8, including learning C# programming and scripting.</p>
+
+<hr />
+
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=https://Owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Flare-on%209%20-%20Challenge%209%20and%2011&url=https://Owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=https://Owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/&amp;media=https://Owl4444.github.io/images/flareon9_9_11/flare-on9_11.png&amp;description=Flare-on%209%20-%20Challenge%209%20and%2011" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
+        <img class="post__nav-image lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h4>
+        </div>
+      </a>
+      
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
+                  <img class="lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        16 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-09-25T19:08:00+00:00">Sep 25, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h2>
+
+                  <p class="article__excerpt">I have always wanted to give z3 solver a try and had decided to use this for solving Ezpz from DUCTF2022.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/">
+                  <img class="lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        11 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-09-09T22:31:00+00:00">Sep 9, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h2>
+
+                  <p class="article__excerpt">Now that we have an understanding about how shellcode works, let's write one ourselves now @.@</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/">
+                  <img class="lazy" data-src="/images/windows10shellcodePart1/Windows10Shellcodepart1.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        7 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-09-07T21:12:00+00:00">Sep 7, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h2>
+
+                  <p class="article__excerpt">In this part, we will see how basic shellcode works and how we move from the TEB structure to getting Kernel32.dll base address to getting WinExec's function pointer and popping calculator.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
   </main> 
   <!-- end content -->
   

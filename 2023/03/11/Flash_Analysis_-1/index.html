@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>DudeLocker (Flare-on 2016) - RVA and Import Descriptors</title>
-  <meta name='description' content='Learning how PE files get imported function names from headers. Cleared up concepts on Relative Virtual Address and learnt some Important data structures per...'>
+  <title>Flash Analysis</title>
+  <meta name='description' content='Just a random quick analysis of a recent sample that was uploaded on VirusTotal. The first ever in this blog at least ...'>
 
-  <link rel="canonical" href="http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/">
+  <link rel="canonical" href="http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -219,7 +219,7 @@
       
       <div class="col col-6 col-t-12">
         <div class="image-box">
-          <img class="post-image lazy" data-src="/images/DudeLocker_background.png" alt="DudeLocker (Flare-on 2016) - RVA and Import Descriptors">
+          <img class="post-image lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="Flash Analysis">
         </div>
       </div>
       
@@ -231,14 +231,14 @@
             <span class="post__minutes">
               
               
-                8 min read
+                6 min read
               
               <time class="post__date"
-                datetime="2022-09-06T20:23:00+00:00">Sep 6, 2022</time>
+                datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
             </span>
           </div>
         
-          <h2 class="post__title">DudeLocker (Flare-on 2016) - RVA and Import Descriptors</h2>
+          <h2 class="post__title">Flash Analysis</h2>
         
           <div class="post__bottom">
         
@@ -253,7 +253,7 @@
               <span>in</span>
               <span class="post-tags">
                 
-                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                <a href="/tag/MalwareAnalysis" class="post__tag">MalwareAnalysis</a>
                 
               </span>
               
@@ -271,183 +271,243 @@
   <article class="post animate">
 
     <div class="post__content">
-      <h1 id="dudelocker">DudeLocker</h1>
+      <h1 id="quick-malware-analysis">Quick Malware Analysis</h1>
 
-<h2 id="description">Description</h2>
+<h2 id="sample">Sample</h2>
 
-<p>Recently, I was tasked to try out challenge 2 <code class="language-plaintext highlighter-rouge">DudeLocker</code> in Flare-on from the year 2016. Since there are already many writeups, this post aims to help the reader understand a concept that was really hazy to me. The concept that I have questions about is how PE files deal with import functions and how they resolve them.</p>
+<p>As of 11 March 2023, I have tried the following search in VirusTotal
+<img src="/images/flash_analysis_1/bb183d4fe39440a8a01cfff28f8520dc.png" alt="bb183d4fe39440a8a01cfff28f8520dc.png" /></p>
 
-<h2 id="tldr-dudelocker">TL;DR (DudeLocker)</h2>
-<p>What DudeLocker does is that it will attempt to generate the IV and Key and use that for AES-CBC Mode Cipher to encrypt every document in the Briefcase folder stored in the Desktop. However, what we really want is decrypt the file instead to get back the original jpg file content. One of the  ways to do so is to mess with the Import descriptors and calling CryptDecrypt rather than CryptEncrypt. This will still work because AES-CBC uses symmetric encryption.</p>
+<h3 id="hash">Hash:</h3>
 
-<p>If you have not tried this yet, you can download the challenge files from <a href="https://github.com/fareedfauzi/Flare-On-Challenges/blob/master/Challenges/2016/Flare-on%203/2/">github</a>. Give it a try and you can try to follow along as well!</p>
+<div class="table-container">
+  <table> 
+    <tr><th>Name : </th><th>dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe</th></tr>
+    <tr><th> Hash : </th><th>7703278ce4c812de42c720928689b5cd5976270057dcfb512c9905d1ae7307d3</th></tr>
+  </table>
+</div>
 
-<h2 id="finding-imports-from-pe-file-headers">Finding Imports from PE File Headers</h2>
+<p><br /></p>
 
-<p>During this time, I wil be using <code class="language-plaintext highlighter-rouge">pe-bear</code> and <code class="language-plaintext highlighter-rouge">pestudio</code> to inspect the PE File structure of the ransomware. Within the NT Headers, there is an <code class="language-plaintext highlighter-rouge">Optional Header</code> that points to the Import Directory at raw file offset 0x160 which contains the address 0x21A8.</p>
+<p><img src="/images/flash_analysis_1/7db4dd9bfc334a69a35c545c79f6e607.png" alt="7db4dd9bfc334a69a35c545c79f6e607.png" /></p>
 
-<p><img src="/images/import_directory_RVA.png" alt="import_directory_RVA.png" />
-<em>Address of Import Directory</em></p>
+<h2 id="static-analysis">Static Analysis</h2>
 
-<p>While this address looks pretty much normal, however, when we look at the data in the last section, realize that there is no such address as it ends at 0x19FF. WHAT?!</p>
+<h3 id="floss">FLOSS</h3>
+<p>Firstly, from Flare’s Floss program it shows some interesting strings that might give an insight to what this malware might be doing.</p>
 
-<p><img src="/images/end_of_data.png" alt="end_of_data.png" /></p>
-
-<p>To understand this, we have to understand what Relative Virtual Address is! According to <a href="https://en.wikipedia.org/wiki/COFF">Wikipedia</a> :</p>
-
-<blockquote>
-  <p>Relative virtual addresses (RVAs) are not to be confused with standard virtual addresses. A relative virtual address is the virtual address of an object from the file once it is loaded into memory, minus the base address of the file image.</p>
-</blockquote>
-
-<p>That said, to find out the directory information from the PE File, we need to calculate the File Offset Address (FOA) so that we can parse the data.</p>
-
-<p>Before going deeper, let us first take a look and understand the Section Headers that can be seen in PE-bear.</p>
-
-<p><img src="/images/section_headers.png" alt="section_headers.png" />
-<em>Section Headers</em></p>
-
-<h2 id="calculating-file-offset-address-from-rva">Calculating File Offset Address from RVA</h2>
-
-<p>We are interested in the <code class="language-plaintext highlighter-rouge">.rdata</code> section since the the RVA of value 0x21A8 is within range. We see that there are quite a number of fields in this Section Headers.</p>
-
-<p>This actually corresponds with the <a href="https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_section_header"><code class="language-plaintext highlighter-rouge">_IMAGE_SECTION_HEADER</code></a> struct.</p>
-
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_SECTION_HEADER</span> <span class="p">{</span>
-  <span class="n">BYTE</span>  <span class="n">Name</span><span class="p">[</span><span class="n">IMAGE_SIZEOF_SHORT_NAME</span><span class="p">];</span>
-  <span class="k">union</span> <span class="p">{</span>
-    <span class="n">DWORD</span> <span class="n">PhysicalAddress</span><span class="p">;</span>
-    <span class="n">DWORD</span> <span class="n">VirtualSize</span><span class="p">;</span>
-  <span class="p">}</span> <span class="n">Misc</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">VirtualAddress</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">SizeOfRawData</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">PointerToRawData</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">PointerToRelocations</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">PointerToLinenumbers</span><span class="p">;</span>
-  <span class="n">WORD</span>  <span class="n">NumberOfRelocations</span><span class="p">;</span>
-  <span class="n">WORD</span>  <span class="n">NumberOfLinenumbers</span><span class="p">;</span>
-  <span class="n">DWORD</span> <span class="n">Characteristics</span><span class="p">;</span>
-<span class="p">}</span> <span class="n">IMAGE_SECTION_HEADER</span><span class="p">,</span> <span class="o">*</span><span class="n">PIMAGE_SECTION_HEADER</span><span class="p">;</span>
-</code></pre></div></div>
-
-<p>The two main fields that we are interested in are :</p>
+<p>It seems to indicate some things:</p>
 <ol>
-  <li>Virtual Address
-    <ul>
-      <li>the address of the <strong>FIRST</strong> byte of the section when loaded into memory, relative to the image base!</li>
-      <li>In this case, when DudeLocker is loaded in memory, the first byte of the .rdata section is 0x2000 excluding the image base.</li>
-    </ul>
+  <li>Persistence via the Run key</li>
+  <li>Commands are run within this binary via <code class="language-plaintext highlighter-rouge">ShellExecuteExA</code> from <code class="language-plaintext highlighter-rouge">Shell32.dll</code></li>
+  <li>Internet Requests are made since headers are found
+    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Accept: */*
+0x06065 Content-Type: application/x-www-form-urlencoded
+0x06096 Accept-Language: zh-cn
+0x060ae Connection: Keep-Alive
+0x060c8 Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; CIBA; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022)
+</code></pre></div>    </div>
   </li>
-  <li>PointerToRawData
-    <ul>
-      <li>A file pointer to the first page within the COFF file, referring to the PE file.</li>
-      <li>In this case,  Raw Data of .rdata section is at offset 0x1000 of the PE file.</li>
-    </ul>
+  <li>Language Accepted : Chinese</li>
+  <li>MAC address may be collected due to <code class="language-plaintext highlighter-rouge">%s?mac=%02X-%02X-%02X-%02X-%02X-%02X</code></li>
+  <li><code class="language-plaintext highlighter-rouge">pomdfghrt</code> which is actually the mutex name.</li>
+  <li><code class="language-plaintext highlighter-rouge">a.exe</code> string may be obfuscated for some reason since this value is found in the stack string after analysis by FLOSS.</li>
+  <li>It looks like some usersname were targetted including :
+    <ol>
+      <li>Steve</li>
+      <li>George</li>
+      <li>r.vult</li>
+      <li>Joe Cage</li>
+      <li>Azure</li>
+      <li>Linky</li>
+    </ol>
+  </li>
+  <li>It seems like it contains hashes for other malware with the same name <code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> which sounds like another variant
+    <ol>
+      <li><code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> - https://www.virustotal.com/gui/file/55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227/details</li>
+      <li><code class="language-plaintext highlighter-rouge">9b5e3f2ea0756b11df0cef72d7d9d2ac.virus</code> - https://www.virustotal.com/gui/file/9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d/details
+        <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
+0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
+0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
+0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
+0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
+0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
+0x13c98 C:\Users\george\Desktop\microsofthelp.exe
+0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
+0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x140a8 C:\Users\george\Desktop\microsofthelp.exe
+0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
+0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
+0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
+0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
+0x145bc C:\WINDOWS\STUB.exe
+0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
+0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
+0x148c8 C:\WINDOWS\STUB.exe
+0x149cc C:\Users\george\Desktop\software.exe
+0x14ad0 C:\WINDOWS\STUB.exe
+0x14bd4 C:\Users\george\Desktop\program.exe
+0x14cd8 C:\WINDOWS\STUB.exe
+0x14ddc C:\Users\george\Desktop\software.exe
+0x14ee0 C:\WINDOWS\STUB.exe
+0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
+0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
+0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
+0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
+0x153f4 C:\WINDOWS\STUB.exe
+0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
+0x155fc C:\WINDOWS\STUB.exe
+0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
+0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
+0x15908 C:\Users\azure\Downloads\microsofthelp.exe
+0x15a0c C:\WINDOWS\STUB.exe
+0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
+0x15c14 C:\WINDOWS\STUB.exe
+0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
+0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
+0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+</code></pre></div>        </div>
+      </li>
+    </ol>
   </li>
 </ol>
 
-<p>Now, the value 0x21A8 represents the Relative Virtual Address (RVA) of the Import Directory which refers to the address when loaded in memory at that specific location relative to the image base.</p>
+<p>Some other interesting strings that may be used for hunting includes</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Software\motherFucker
 
-<p>Therefore, to figure out the File Offset Address with relations to the Relative Virtual Address (RVA), we can do the following calculation.</p>
+GetStringTypeALCMapStringWWaitForSingleObjectCreateThreadHeapFreeDeleteFileAExitProcesslstrcmpiAlstrcatAGetWindowsDirectoryAHeapAllocGetProcessHeapSleepGetModuleFileNameACloseHandleGetLastErrorCreateMutexAGetProcAddressLoadLibraryAHeapReAllocGetTickCountFindCloseFindFirstFileATerminateProcessCreateProcessACreateFileAReadFileWriteFileFlushFileBuffersGetFileSizeLCMapStringAGetStringTypeWMultiByteToWideCharGetOEMCPGetACPGetCPInfoRtlUnwindSetUnhandledExceptionFilterIsBadReadPtrIsBadWritePtrIsBadCodePtrGetCurrentProcessGetStdHandleWideCharToMultiByteRegSetValueExARegQueryValueExARegOpenKeyExARegCreateKeyARegOpenKeyARegCloseKeyGetAdaptersInfoInternetOpenAInternetSetOptionExAInternetOpenUrlAInternetCloseHandleInternetReadFilewsprintfA
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+B&amp;C:\Documents and Settings\Administrator\My Documents\My Music\QvodSetup5.exe
 
-FileOffsetAddress =  0x1000 + ( 0x21A8 - 0x2000 )
+C:\_dWlLXez.exe
 
-FileOffsetAddress = 0x11a8
+C:\runme.exe
+
+C:\vshsn.exe
+
+0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
+0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
+0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
+0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
+0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
+0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
+0x13c98 C:\Users\george\Desktop\microsofthelp.exe
+0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
+0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x140a8 C:\Users\george\Desktop\microsofthelp.exe
+0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
+0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
+0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
+0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
+0x145bc C:\WINDOWS\STUB.exe
+0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
+0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
+0x148c8 C:\WINDOWS\STUB.exe
+0x149cc C:\Users\george\Desktop\software.exe
+0x14ad0 C:\WINDOWS\STUB.exe
+0x14bd4 C:\Users\george\Desktop\program.exe
+0x14cd8 C:\WINDOWS\STUB.exe
+0x14ddc C:\Users\george\Desktop\software.exe
+0x14ee0 C:\WINDOWS\STUB.exe
+0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
+0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
+0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
+0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
+0x153f4 C:\WINDOWS\STUB.exe
+0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
+0x155fc C:\WINDOWS\STUB.exe
+0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
+0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
+0x15908 C:\Users\azure\Downloads\microsofthelp.exe
+0x15a0c C:\WINDOWS\STUB.exe
+0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
+0x15c14 C:\WINDOWS\STUB.exe
+0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
+0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
+0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+
 </code></pre></div></div>
 
-<p><code class="language-plaintext highlighter-rouge">(RVA - VirtualAddressOfSection)</code> acts like the delta between the address and the first byte which will then be added to Pointer to Raw Data where the first byte of that section is located in the PE File. Thus, getting the File offset Address.</p>
+<h3 id="capa">CAPA</h3>
+<p>With Flare’s CAPA, we can quickly identify that there is some unusual section name with the following format <code class="language-plaintext highlighter-rouge">nspX</code> where <code class="language-plaintext highlighter-rouge">X</code> is a number.
+<img src="/images/flash_analysis_1/1b4aedd436fa4cbabb0536ba115d8e0e.png" alt="1b4aedd436fa4cbabb0536ba115d8e0e.png" /></p>
 
-<p>Checking the first entry in the imports tab in PE-bear should confirm our calculations!</p>
+<p>This is the first time I have ever heard and came across NSP Packer.</p>
 
-<p><img src="/images/import_calculation.png" alt="import_calculation.png" />
-<em>At file offset 0x11a8 lies the first import entry</em></p>
+<h3 id="pe-bear">PE Bear</h3>
+<p>Off all the nsp section names, only nsp2 consists of all zeros. At this juncture, I believe that this is where the unpacked bytes would be located at. I may be wrong.</p>
 
-<h2 id="studying-important-structs-related-to-imports">Studying Important Structs related to Imports</h2>
+<p><img src="/images/flash_analysis_1/eab3071ac99e4b529e312194aaa6f297.png" alt="eab3071ac99e4b529e312194aaa6f297.png" /></p>
 
-<p>Referencing this <a href="http://www.cse.tkk.fi/fi/opinnot/T-110.6220/2010_Spring_Malware_Analysis_and_Antivirus_Tchnologies/luennot-files/Erdelyi-Reverse_engineering_2.pdf">PDF</a>, the Import Descriptors contain the fields as seen in the previous image. <a href="https://docs.microsoft.com/en-us/archive/msdn-magazine/2002/march/inside-windows-an-in-depth-look-into-the-win32-portable-executable-file-format-part-2">This old MSDN Post</a> supports that as well. It turns out there are different ways to resolve the imported function address. For this post, I will only focus on resolution when bound value is set to FALSE.</p>
+<p>We see that from this output, there are attempt to set persistence and also get common api like <code class="language-plaintext highlighter-rouge">GetProcessAddress</code> and <code class="language-plaintext highlighter-rouge">LoadLibrary</code>.</p>
 
-<p>The following image is taken from the aforementioned PDF</p>
+<h2 id="static-analysis-1">Static Analysis</h2>
+<h3 id="persistence">Persistence</h3>
+<p>As we suspected, it places the path of microsofthelp.exe into the run key in the registry
+<img src="/images/flash_analysis_1/b037901cf4ed4c25804d2003b722816e.png" alt="runkey.png" /></p>
 
-<p><img src="/images/important_data_structures.png" alt="important_data_structures.png" /></p>
+<h3 id="to-further-debug">To Further debug,</h3>
 
-<p>Using this data structure, we should be able to parse and get back the same result.</p>
+<p>Have to set settings to the path that it is looking out for. Or we can always patch. In this case, we choose the former.</p>
 
-<p><img src="/images/image_import_descriptor.png" alt="image_import_descriptor.png" />
-<em>Mapping from memory to structure</em></p>
+<p><img src="/images/flash_analysis_1/f5bf1db494ce44e095b5da6a18fbf6ad.png" alt="2_settings_to_debug_further.png" /></p>
 
-<p>Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounded IAT.</p>
+<p>Only then will we be able to see the mutex being created.</p>
 
-<p>Notice how the value of NameRVA 0x242c gets resolved to the symbol name <code class="language-plaintext highlighter-rouge">KERNEL32.dll</code>? We can confirm that with the same calculations as before to find out the File Offset Address.</p>
+<h3 id="fakenet-ng">Fakenet-ng</h3>
+<p>Using Fake net, we see that it attempts to connect to 239.255.255.250:3702.</p>
 
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+<p><img src="/images/flash_analysis_1/5e9a953f9a89425fb3b12684a61ae715.png" alt="3. outbound_traffic_attempt.png" /></p>
 
-FileOffsetAddress =  0x1000 + ( 0x242c - 0x2000 )
+<p>According to Mandiant, this URL has been found being used by Russian Speaking Threat Actor advertising access to South Korean Metal Company on exploit.in (Underground hacking forum that has been around and active since 2005) primarily targgeting customer’s data and Intellectual Properties. Just from this, it is still unclear that this sample has any corelation to that incident.</p>
 
-FileOffsetAddress = 0x142c
-</code></pre></div></div>
+<p>According to Virus Total, it has been marked as malicious.</p>
 
-<p><img src="/images/rva_name.png" alt="rva_name.png" /></p>
+<p><img src="/images/flash_analysis_1/9f864cdb27d34a95840a5debdea39e1e.png" alt="9f864cdb27d34a95840a5debdea39e1e.png" /></p>
 
-<p>Finally, to list out the import functions, we can trace through the Original first Thunk. Since we have the value fo 0x223c, we have the FileOffsetAddress of 0x123c which contains the RVA of 0x2360 which points to IMAGE_IMPORT_BY_NAME structure with the hint and byte pointer field at 0x1360!</p>
+<p>Some information about what we are going to see :</p>
+<blockquote>
+  <p>Downloaded files: latest files that have been retrieved from URLs sitting at the domain or IP address under study. Note that the date recorded in this section is not the date at which the file was downloaded but rather the date of the last report that we have for the resource.</p>
 
-<p><img src="/images/import_name.png" alt="import_name.png" /></p>
+  <p>latest files that, through their execution in a sandboxed virtual environment, have been seen to perform some kind of communication with the IP address or domain under consideration.</p>
 
-<p>The hint in this data structure is actually a “hint” to the loader as to what ordinal of the imported API might be. Also, the reason why we can tell that the RVA of 0x2360 points to the IMAGE_THUNK_ DATA value is because the high bit of the IMAGE_THUNK_DATA value is not set. If it is set, the bottom 31 bits (or 63 bits for a 64-bit executable) is treated as an ordinal value.</p>
+  <p>Files referring: VirusTotal will inspect the strings contained in files submitted to the service and apply certain regular expressions to these in order to identify domains and IP addresses. This section records files that have referenced the domain or IP address under consideration. Note that the date recorded in this section is not the date at which the file that give raise to the relationship was submitted but rather the date of the last report that we have for the resource.</p>
+</blockquote>
 
-<p>Another important detail is that this “hint” is there to help improve performance when attempting to resolve a function, however, if it is unable to find the function, it will still search the normal way as before. This means that if we were to change the name of the function, the hint may fail and still continue to search up the DLL export table.</p>
+<p><img src="/images/flash_analysis_1/ffa5a2462bc94407acfb90fa30e8918b.png" alt="ffa5a2462bc94407acfb90fa30e8918b.png" /></p>
 
-<h1 id="changing-cryptencrypt-to-cryptdecrypt">Changing CryptEncrypt to CryptDecrypt</h1>
+<p>Note that this IP is not new. In the lower group of files, they are all marked with <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> .</p>
 
-<p>If you have done the challenge, you would have been familiar with the following two functions.</p>
+<p>The upper group consists of many different types of malware:</p>
+<ul>
+  <li>Grayware</li>
+  <li>Phishing PDFs</li>
+  <li>Downloaders</li>
+  <li>Spreaders</li>
+</ul>
 
-<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//  7 parameters</span>
-<span class="n">BOOL</span> <span class="nf">CryptEncrypt</span><span class="p">(</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTKEY</span>  <span class="n">hKey</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTHASH</span> <span class="n">hHash</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">BOOL</span>       <span class="n">Final</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwFlags</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">BYTE</span>       <span class="o">*</span><span class="n">pbData</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">DWORD</span>      <span class="o">*</span><span class="n">pdwDataLen</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwBufLen</span>
-<span class="p">);</span>
+<h1 id="summary">Summary</h1>
 
-<span class="c1">// 6 parameters</span>
-<span class="n">BOOL</span> <span class="nf">CryptDecrypt</span><span class="p">(</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTKEY</span>  <span class="n">hKey</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTHASH</span> <span class="n">hHash</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">BOOL</span>       <span class="n">Final</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwFlags</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">BYTE</span>       <span class="o">*</span><span class="n">pbData</span><span class="p">,</span>
-  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">DWORD</span>      <span class="o">*</span><span class="n">pdwDataLen</span>
-<span class="p">);</span>
-</code></pre></div></div>
+<p>As I do not have communication with C2 server, I am not able to retrieve the data from it and therefore am not able to go perform a deep dive into the payload :( However, we are still able to suggest that this sample specifically acts as both dropper and downloader!.</p>
 
-<p>For this, since we are now familiar with how the program resolves the name, we can attempt to find and patch the binary so that.</p>
+<p>Based on VirusTotal relation graph, there is a high probability that this can be used to drop <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> malware into the Victim’s PC.</p>
 
-<p>First thing I did was to change the name using CFF Explorer. I changed the name of CryptEncrypt to CryptDecrypt.</p>
+<p>To end it off, here is the rough flow of event :</p>
 
-<p><img src="/images/alter_to_decrypt.png" alt="alter_to_decrypt.png" /></p>
+<p><img src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="326d26f624af4b02bae8b528cdce9752.png" /></p>
 
-<p>We can now load the binary into IDA and see the changes.</p>
-
-<p><img src="/images/now_decrypt.png" alt="now_decrypt.png" /></p>
-
-<p>Since that CryptDecrypt has the exact same parameters except for the absence of the parameter <code class="language-plaintext highlighter-rouge">dwBufLen</code>, we can replace the <code class="language-plaintext highlighter-rouge">push eax</code> instruction with NOPs at address 0040165A.</p>
-
-<p>Let’s patch it in x32dbg and see the result. Remember to change the volume serial number with VolumeId64.exe from sysinternal tools suite. Also, put the BusinessPapers.doc file into the Briefcase as well for decryption.</p>
-
-<p><img src="/images/nop.png" alt="nop.png" /></p>
-
-<h2 id="flagging">Flagging</h2>
-
-<p>After running the decryption, we can now double check the BusinessPapers.doc in HxD. We see that it has the JFIF header with Exif information which suggest strongly that this is a JPG file.</p>
-
-<p><img src="/images/HxD_output_jfif.png" alt="HxD_output_jfif.png" /></p>
-
-<p>Changing the extension to Jpg and we should see the following image containing the flag.</p>
-
-<p><img src="/images/flag.png" alt="flag.png" /></p>
+<ol>
+  <li>If current file modules is not the same as <code class="language-plaintext highlighter-rouge">C:/windows/microsofthelp.exe</code> then create it there. if it fails, then it will attempt to copy itself into that directory and set registry key for persistence</li>
+  <li>if it fails, sleep and try again</li>
+  <li>if it passes, then create a mutex <code class="language-plaintext highlighter-rouge">pomdfghrt</code> and find if there are similar samples. If there are, then delete them</li>
+  <li>Decrypt 0x80 bytes of data with xor key within <code class="language-plaintext highlighter-rouge">.nsp0</code> section</li>
+  <li>Check if <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code> exists in same directory. If not, it will decrypt data and write into it.</li>
+  <li>Load the <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code></li>
+  <li>Connect to internet and get back encrypted response</li>
+  <li>Decrypt and ultimately run via <code class="language-plaintext highlighter-rouge">ShellExecute</code> command.</li>
+</ol>
 
 <hr />
 
@@ -456,32 +516,24 @@ FileOffsetAddress = 0x142c
 
     <div class="post__share">
       <div class="share__list">
-        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
 
-        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=DudeLocker%20(Flare-on%202016)%20-%20RVA%20and%20Import%20Descriptors&url=http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Flash%20Analysis&url=http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
 
-        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/&amp;media=http://0.0.0.0:7777/images/DudeLocker_background.png&amp;description=DudeLocker%20(Flare-on%202016)%20-%20RVA%20and%20Import%20Descriptors" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/&amp;media=http://0.0.0.0:7777/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png&amp;description=Flash%20Analysis" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
       </div>
     </div>
 
     <div class="post__navigation">
       
-      <a class="prev" href="/2022/09/05/Welcome-to-my-blog-everyone/">
-        <img class="post__nav-image lazy" data-src="/images/welcomepost_background.png" alt="Welcome to my Blog everyone !">
+      <a class="prev" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+        <img class="post__nav-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
         <div class="post__nav-box">
           <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
-          <h4 class="post__nav__title">Welcome to my Blog everyone !</h4>
+          <h4 class="post__nav__title">Flare-on 9 - Challenge 9 and 11</h4>
         </div>
       </a>
       
-      
-      <a class="next" href="/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/">
-        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart1/Windows10Shellcodepart1.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1">
-        <div class="post__nav-box">
-          <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
-          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h4>
-        </div>
-      </a>
       
     </div>
 
@@ -496,7 +548,7 @@ FileOffsetAddress = 0x142c
 
 
 <div class="container">
-  <div class="related-posts is-related">
+  <div class="related-posts ">
     <div class="row">
       <div class="col col-12">
         <div class="container__inner">
@@ -517,66 +569,6 @@ FileOffsetAddress = 0x142c
             
 
             
-
-            <div class="article col col-4 col-d-6 col-t-12 grid__post">
-              <div class="article__inner">
-
-                
-                <a class="article__image" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
-                  <img class="lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
-                </a>
-                
-
-                <div class="article__content">
-
-                  <div class="article__meta">
-                    <span class="article__minutes">
-                      
-                      
-                        9 min read
-                      
-                      <time class="article__date"
-                        datetime="2022-11-12T10:10:00+00:00">Nov 12, 2022</time>
-                    </span>
-                  </div>
-
-                  <h2 class="article__title">Flare-on 9 - Challenge 9 and 11</h2>
-
-                  <p class="article__excerpt">This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
-
-                  <div class="article__bottom">
-
-                    
-                    <div class="article__author">
-                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-                    </div>
-                    
-
-                    <div class="article__bottom-meta">
-                      
-                        <a href="/about/" class="article__author-link">MalwareOwl</a>
-                      
-                      
-                      <span>in</span>
-                      <span class="article-tags">
-                        
-                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
-                        
-                          <a href="/tag/CTF" class="article__tag">CTF</a>
-                        
-                      </span>
-                      
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
-
-            
-                
-              
             
             
             
@@ -584,66 +576,6 @@ FileOffsetAddress = 0x142c
             
 
             
-
-            <div class="article col col-4 col-d-6 col-t-12 grid__post">
-              <div class="article__inner">
-
-                
-                <a class="article__image" href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
-                  <img class="lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
-                </a>
-                
-
-                <div class="article__content">
-
-                  <div class="article__meta">
-                    <span class="article__minutes">
-                      
-                      
-                        11 min read
-                      
-                      <time class="article__date"
-                        datetime="2022-09-25T19:08:00+00:00">Sep 25, 2022</time>
-                    </span>
-                  </div>
-
-                  <h2 class="article__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h2>
-
-                  <p class="article__excerpt">I have always wanted to give z3 solver a try and had decided to use this for solving Ezpz from DUCTF2022.</p>
-
-                  <div class="article__bottom">
-
-                    
-                    <div class="article__author">
-                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-                    </div>
-                    
-
-                    <div class="article__bottom-meta">
-                      
-                        <a href="/about/" class="article__author-link">MalwareOwl</a>
-                      
-                      
-                      <span>in</span>
-                      <span class="article-tags">
-                        
-                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
-                        
-                          <a href="/tag/CTF" class="article__tag">CTF</a>
-                        
-                      </span>
-                      
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
-
-            
-                
-              
             
             
             
@@ -651,64 +583,28 @@ FileOffsetAddress = 0x142c
             
 
             
-
-            <div class="article col col-4 col-d-6 col-t-12 grid__post">
-              <div class="article__inner">
-
-                
-                <a class="article__image" href="/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/">
-                  <img class="lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
-                </a>
-                
-
-                <div class="article__content">
-
-                  <div class="article__meta">
-                    <span class="article__minutes">
-                      
-                      
-                        11 min read
-                      
-                      <time class="article__date"
-                        datetime="2022-09-09T22:31:00+00:00">Sep 9, 2022</time>
-                    </span>
-                  </div>
-
-                  <h2 class="article__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h2>
-
-                  <p class="article__excerpt">Now that we have an understanding about how shellcode works, let's write one ourselves now @.@</p>
-
-                  <div class="article__bottom">
-
-                    
-                    <div class="article__author">
-                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-                    </div>
-                    
-
-                    <div class="article__bottom-meta">
-                      
-                        <a href="/about/" class="article__author-link">MalwareOwl</a>
-                      
-                      
-                      <span>in</span>
-                      <span class="article-tags">
-                        
-                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
-                        
-                      </span>
-                      
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
+            
+            
+            
 
             
-                
-                  
+
+            
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+            
           </div>
         </div>
       </div>
@@ -813,7 +709,7 @@ FileOffsetAddress = 0x142c
           <span class="article__minutes">
             
             
-              9 min read
+              10 min read
             
           </span>
           <time class="article__date"

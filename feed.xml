@@ -3,11 +3,263 @@
   <channel>
     <title>Malware Owl</title>
     <description>Malware Owl Blog on the Journey</description>
-    <link>https://Owl4444.github.io/</link>
-    <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 12 Nov 2022 10:40:32 +0000</pubDate>
-    <lastBuildDate>Sat, 12 Nov 2022 10:40:32 +0000</lastBuildDate>
+    <link>http://0.0.0.0:7777/</link>
+    <atom:link href="http://0.0.0.0:7777/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Sat, 11 Mar 2023 15:53:21 +0000</pubDate>
+    <lastBuildDate>Sat, 11 Mar 2023 15:53:21 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
+    
+      <item>
+        <title>Flash Analysis</title>
+        <description>&lt;h1 id=&quot;quick-malware-analysis&quot;&gt;Quick Malware Analysis&lt;/h1&gt;
+
+&lt;h2 id=&quot;sample&quot;&gt;Sample&lt;/h2&gt;
+
+&lt;p&gt;As of 11 March 2023, I have tried the following search in VirusTotal
+&lt;img src=&quot;/images/flash_analysis_1/bb183d4fe39440a8a01cfff28f8520dc.png&quot; alt=&quot;bb183d4fe39440a8a01cfff28f8520dc.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;hash&quot;&gt;Hash:&lt;/h3&gt;
+
+&lt;div class=&quot;table-container&quot;&gt;
+  &lt;table&gt; 
+    &lt;tr&gt;&lt;th&gt;Name : &lt;/th&gt;&lt;th&gt;dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe&lt;/th&gt;&lt;/tr&gt;
+    &lt;tr&gt;&lt;th&gt; Hash : &lt;/th&gt;&lt;th&gt;7703278ce4c812de42c720928689b5cd5976270057dcfb512c9905d1ae7307d3&lt;/th&gt;&lt;/tr&gt;
+  &lt;/table&gt;
+&lt;/div&gt;
+
+&lt;p&gt;&lt;br /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/7db4dd9bfc334a69a35c545c79f6e607.png&quot; alt=&quot;7db4dd9bfc334a69a35c545c79f6e607.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;static-analysis&quot;&gt;Static Analysis&lt;/h2&gt;
+
+&lt;h3 id=&quot;floss&quot;&gt;FLOSS&lt;/h3&gt;
+&lt;p&gt;Firstly, from Flare’s Floss program it shows some interesting strings that might give an insight to what this malware might be doing.&lt;/p&gt;
+
+&lt;p&gt;It seems to indicate some things:&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Persistence via the Run key&lt;/li&gt;
+  &lt;li&gt;Commands are run within this binary via &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ShellExecuteExA&lt;/code&gt; from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Shell32.dll&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Internet Requests are made since headers are found
+    &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Accept: */*
+0x06065 Content-Type: application/x-www-form-urlencoded
+0x06096 Accept-Language: zh-cn
+0x060ae Connection: Keep-Alive
+0x060c8 Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; CIBA; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022)
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;    &lt;/div&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Language Accepted : Chinese&lt;/li&gt;
+  &lt;li&gt;MAC address may be collected due to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;%s?mac=%02X-%02X-%02X-%02X-%02X-%02X&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pomdfghrt&lt;/code&gt; which is actually the mutex name.&lt;/li&gt;
+  &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;a.exe&lt;/code&gt; string may be obfuscated for some reason since this value is found in the stack string after analysis by FLOSS.&lt;/li&gt;
+  &lt;li&gt;It looks like some usersname were targetted including :
+    &lt;ol&gt;
+      &lt;li&gt;Steve&lt;/li&gt;
+      &lt;li&gt;George&lt;/li&gt;
+      &lt;li&gt;r.vult&lt;/li&gt;
+      &lt;li&gt;Joe Cage&lt;/li&gt;
+      &lt;li&gt;Azure&lt;/li&gt;
+      &lt;li&gt;Linky&lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/li&gt;
+  &lt;li&gt;It seems like it contains hashes for other malware with the same name &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;microsofthelp.exe&lt;/code&gt; which sounds like another variant
+    &lt;ol&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;microsofthelp.exe&lt;/code&gt; - https://www.virustotal.com/gui/file/55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227/details&lt;/li&gt;
+      &lt;li&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;9b5e3f2ea0756b11df0cef72d7d9d2ac.virus&lt;/code&gt; - https://www.virustotal.com/gui/file/9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d/details
+        &lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
+0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
+0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
+0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
+0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
+0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
+0x13c98 C:\Users\george\Desktop\microsofthelp.exe
+0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
+0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x140a8 C:\Users\george\Desktop\microsofthelp.exe
+0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
+0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
+0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
+0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
+0x145bc C:\WINDOWS\STUB.exe
+0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
+0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
+0x148c8 C:\WINDOWS\STUB.exe
+0x149cc C:\Users\george\Desktop\software.exe
+0x14ad0 C:\WINDOWS\STUB.exe
+0x14bd4 C:\Users\george\Desktop\program.exe
+0x14cd8 C:\WINDOWS\STUB.exe
+0x14ddc C:\Users\george\Desktop\software.exe
+0x14ee0 C:\WINDOWS\STUB.exe
+0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
+0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
+0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
+0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
+0x153f4 C:\WINDOWS\STUB.exe
+0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
+0x155fc C:\WINDOWS\STUB.exe
+0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
+0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
+0x15908 C:\Users\azure\Downloads\microsofthelp.exe
+0x15a0c C:\WINDOWS\STUB.exe
+0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
+0x15c14 C:\WINDOWS\STUB.exe
+0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
+0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
+0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;        &lt;/div&gt;
+      &lt;/li&gt;
+    &lt;/ol&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;Some other interesting strings that may be used for hunting includes&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Software\motherFucker
+
+GetStringTypeALCMapStringWWaitForSingleObjectCreateThreadHeapFreeDeleteFileAExitProcesslstrcmpiAlstrcatAGetWindowsDirectoryAHeapAllocGetProcessHeapSleepGetModuleFileNameACloseHandleGetLastErrorCreateMutexAGetProcAddressLoadLibraryAHeapReAllocGetTickCountFindCloseFindFirstFileATerminateProcessCreateProcessACreateFileAReadFileWriteFileFlushFileBuffersGetFileSizeLCMapStringAGetStringTypeWMultiByteToWideCharGetOEMCPGetACPGetCPInfoRtlUnwindSetUnhandledExceptionFilterIsBadReadPtrIsBadWritePtrIsBadCodePtrGetCurrentProcessGetStdHandleWideCharToMultiByteRegSetValueExARegQueryValueExARegOpenKeyExARegCreateKeyARegOpenKeyARegCloseKeyGetAdaptersInfoInternetOpenAInternetSetOptionExAInternetOpenUrlAInternetCloseHandleInternetReadFilewsprintfA
+
+B&amp;amp;C:\Documents and Settings\Administrator\My Documents\My Music\QvodSetup5.exe
+
+C:\_dWlLXez.exe
+
+C:\runme.exe
+
+C:\vshsn.exe
+
+0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
+0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
+0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
+0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
+0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
+0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
+0x13c98 C:\Users\george\Desktop\microsofthelp.exe
+0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
+0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
+0x140a8 C:\Users\george\Desktop\microsofthelp.exe
+0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
+0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
+0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
+0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
+0x145bc C:\WINDOWS\STUB.exe
+0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
+0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
+0x148c8 C:\WINDOWS\STUB.exe
+0x149cc C:\Users\george\Desktop\software.exe
+0x14ad0 C:\WINDOWS\STUB.exe
+0x14bd4 C:\Users\george\Desktop\program.exe
+0x14cd8 C:\WINDOWS\STUB.exe
+0x14ddc C:\Users\george\Desktop\software.exe
+0x14ee0 C:\WINDOWS\STUB.exe
+0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
+0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
+0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
+0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
+0x153f4 C:\WINDOWS\STUB.exe
+0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
+0x155fc C:\WINDOWS\STUB.exe
+0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
+0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
+0x15908 C:\Users\azure\Downloads\microsofthelp.exe
+0x15a0c C:\WINDOWS\STUB.exe
+0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
+0x15c14 C:\WINDOWS\STUB.exe
+0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
+0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
+0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;capa&quot;&gt;CAPA&lt;/h3&gt;
+&lt;p&gt;With Flare’s CAPA, we can quickly identify that there is some unusual section name with the following format &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;nspX&lt;/code&gt; where &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;X&lt;/code&gt; is a number.
+&lt;img src=&quot;/images/flash_analysis_1/1b4aedd436fa4cbabb0536ba115d8e0e.png&quot; alt=&quot;1b4aedd436fa4cbabb0536ba115d8e0e.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This is the first time I have ever heard and came across NSP Packer.&lt;/p&gt;
+
+&lt;h3 id=&quot;pe-bear&quot;&gt;PE Bear&lt;/h3&gt;
+&lt;p&gt;Off all the nsp section names, only nsp2 consists of all zeros. At this juncture, I believe that this is where the unpacked bytes would be located at. I may be wrong.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/eab3071ac99e4b529e312194aaa6f297.png&quot; alt=&quot;eab3071ac99e4b529e312194aaa6f297.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We see that from this output, there are attempt to set persistence and also get common api like &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GetProcessAddress&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;LoadLibrary&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;static-analysis-1&quot;&gt;Static Analysis&lt;/h2&gt;
+&lt;h3 id=&quot;persistence&quot;&gt;Persistence&lt;/h3&gt;
+&lt;p&gt;As we suspected, it places the path of microsofthelp.exe into the run key in the registry
+&lt;img src=&quot;/images/flash_analysis_1/b037901cf4ed4c25804d2003b722816e.png&quot; alt=&quot;runkey.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;to-further-debug&quot;&gt;To Further debug,&lt;/h3&gt;
+
+&lt;p&gt;Have to set settings to the path that it is looking out for. Or we can always patch. In this case, we choose the former.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/f5bf1db494ce44e095b5da6a18fbf6ad.png&quot; alt=&quot;2_settings_to_debug_further.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Only then will we be able to see the mutex being created.&lt;/p&gt;
+
+&lt;h3 id=&quot;fakenet-ng&quot;&gt;Fakenet-ng&lt;/h3&gt;
+&lt;p&gt;Using Fake net, we see that it attempts to connect to 239.255.255.250:3702.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/5e9a953f9a89425fb3b12684a61ae715.png&quot; alt=&quot;3. outbound_traffic_attempt.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;According to Mandiant, this URL has been found being used by Russian Speaking Threat Actor advertising access to South Korean Metal Company on exploit.in (Underground hacking forum that has been around and active since 2005) primarily targgeting customer’s data and Intellectual Properties. Just from this, it is still unclear that this sample has any corelation to that incident.&lt;/p&gt;
+
+&lt;p&gt;According to Virus Total, it has been marked as malicious.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/9f864cdb27d34a95840a5debdea39e1e.png&quot; alt=&quot;9f864cdb27d34a95840a5debdea39e1e.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Some information about what we are going to see :&lt;/p&gt;
+&lt;blockquote&gt;
+  &lt;p&gt;Downloaded files: latest files that have been retrieved from URLs sitting at the domain or IP address under study. Note that the date recorded in this section is not the date at which the file was downloaded but rather the date of the last report that we have for the resource.&lt;/p&gt;
+
+  &lt;p&gt;latest files that, through their execution in a sandboxed virtual environment, have been seen to perform some kind of communication with the IP address or domain under consideration.&lt;/p&gt;
+
+  &lt;p&gt;Files referring: VirusTotal will inspect the strings contained in files submitted to the service and apply certain regular expressions to these in order to identify domains and IP addresses. This section records files that have referenced the domain or IP address under consideration. Note that the date recorded in this section is not the date at which the file that give raise to the relationship was submitted but rather the date of the last report that we have for the resource.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/ffa5a2462bc94407acfb90fa30e8918b.png&quot; alt=&quot;ffa5a2462bc94407acfb90fa30e8918b.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Note that this IP is not new. In the lower group of files, they are all marked with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Olympic Destroyer&lt;/code&gt; .&lt;/p&gt;
+
+&lt;p&gt;The upper group consists of many different types of malware:&lt;/p&gt;
+&lt;ul&gt;
+  &lt;li&gt;Grayware&lt;/li&gt;
+  &lt;li&gt;Phishing PDFs&lt;/li&gt;
+  &lt;li&gt;Downloaders&lt;/li&gt;
+  &lt;li&gt;Spreaders&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h1 id=&quot;summary&quot;&gt;Summary&lt;/h1&gt;
+
+&lt;p&gt;As I do not have communication with C2 server, I am not able to retrieve the data from it and therefore am not able to go perform a deep dive into the payload :( However, we are still able to suggest that this sample specifically acts as both dropper and downloader!.&lt;/p&gt;
+
+&lt;p&gt;Based on VirusTotal relation graph, there is a high probability that this can be used to drop &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Olympic Destroyer&lt;/code&gt; malware into the Victim’s PC.&lt;/p&gt;
+
+&lt;p&gt;To end it off, here is the rough flow of event :&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png&quot; alt=&quot;326d26f624af4b02bae8b528cdce9752.png&quot; /&gt;&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;If current file modules is not the same as &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;C:/windows/microsofthelp.exe&lt;/code&gt; then create it there. if it fails, then it will attempt to copy itself into that directory and set registry key for persistence&lt;/li&gt;
+  &lt;li&gt;if it fails, sleep and try again&lt;/li&gt;
+  &lt;li&gt;if it passes, then create a mutex &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pomdfghrt&lt;/code&gt; and find if there are similar samples. If there are, then delete them&lt;/li&gt;
+  &lt;li&gt;Decrypt 0x80 bytes of data with xor key within &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;.nsp0&lt;/code&gt; section&lt;/li&gt;
+  &lt;li&gt;Check if &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;HidePlugin.dll&lt;/code&gt; exists in same directory. If not, it will decrypt data and write into it.&lt;/li&gt;
+  &lt;li&gt;Load the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;HidePlugin.dll&lt;/code&gt;&lt;/li&gt;
+  &lt;li&gt;Connect to internet and get back encrypted response&lt;/li&gt;
+  &lt;li&gt;Decrypt and ultimately run via &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ShellExecute&lt;/code&gt; command.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;hr /&gt;
+
+</description>
+        <pubDate>Sat, 11 Mar 2023 09:54:00 +0000</pubDate>
+        <link>http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2023/03/11/Flash_Analysis_-1/</guid>
+        
+        <category>MalwareAnalysis</category>
+        
+        
+      </item>
     
       <item>
         <title>Flare-on 9 - Challenge 9 and 11</title>
@@ -204,8 +456,8 @@ Commands used were &lt;code class=&quot;language-plaintext highlighter-rouge&quo
 &lt;hr /&gt;
 </description>
         <pubDate>Sat, 12 Nov 2022 10:10:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
+        <link>http://0.0.0.0:7777/2022/11/12/Flare-on-9_chall_9_and_11/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
         
         <category>Writeups</category>
         
@@ -600,8 +852,8 @@ Now, if no value ‘1’s are adjacent to each other in all eight directions, th
 
 </description>
         <pubDate>Sun, 25 Sep 2022 19:08:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
+        <link>http://0.0.0.0:7777/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
         
         <category>Writeups</category>
         
@@ -909,8 +1161,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Fri, 09 Sep 2022 22:31:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
+        <link>http://0.0.0.0:7777/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
         
         <category>Writeups</category>
         
@@ -1041,8 +1293,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Wed, 07 Sep 2022 21:12:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
+        <link>http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
         
         <category>Writeups</category>
         
@@ -1233,8 +1485,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Tue, 06 Sep 2022 20:23:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</guid>
+        <link>http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/09/06/Flare-On-2016-DudeLocker/</guid>
         
         <category>Writeups</category>
         
@@ -1257,8 +1509,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Mon, 05 Sep 2022 21:08:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</guid>
+        <link>http://0.0.0.0:7777/2022/09/05/Welcome-to-my-blog-everyone/</link>
+        <guid isPermaLink="true">http://0.0.0.0:7777/2022/09/05/Welcome-to-my-blog-everyone/</guid>
         
         <category>Welcome</category>
         

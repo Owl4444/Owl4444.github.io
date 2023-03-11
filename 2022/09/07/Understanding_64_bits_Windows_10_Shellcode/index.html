@@ -9,7 +9,7 @@
   <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</title>
   <meta name='description' content='In this part, we will see how basic shellcode works and how we move from the TEB structure to getting Kernel32.dll base address to getting WinExec's function...'>
 
-  <link rel="canonical" href="https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/">
+  <link rel="canonical" href="http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -103,6 +103,10 @@
       
     
   
+    
+      
+    
+  
 </ul>
                 </div>
               </div>
@@ -125,6 +129,10 @@
       <li class="nav__item">
         <a href="/about/" class="nav__link">About</a>
       </li>
+      
+    
+  
+    
       
     
   
@@ -388,11 +396,11 @@
 
     <div class="post__share">
       <div class="share__list">
-        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=https://Owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
 
-        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201&url=https://Owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201&url=http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
 
-        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=https://Owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/&amp;media=https://Owl4444.github.io/images/windows10shellcodePart1/Windows10Shellcodepart1.png&amp;description=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:7777/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/&amp;media=http://0.0.0.0:7777/images/windows10shellcodePart1/Windows10Shellcodepart1.png&amp;description=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
       </div>
     </div>
 
@@ -436,6 +444,13 @@
           <div class="row grid">
 
           
+            
+            
+
+            
+
+            
+            
             
             
 
@@ -685,6 +700,7 @@
   <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
 </noscript>
 <!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -700,6 +716,33 @@
       <h3 class="widget__title">Latest Posts</h3>
     </div>
 
+    
+    <div class="recent-posts">
+      
+      <a class="recent-posts__image" href="/2023/03/11/Flash_Analysis_-1/"><img class="lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="Flash Analysis"></a>
+      
+      <div class="recent-posts__content">
+        <div class="article__meta">
+          <span class="article__minutes">
+            
+            
+              6 min read
+            
+          </span>
+          <time class="article__date"
+            datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
+        </div>
+        <h4 class="recent-posts__title"><a href="/2023/03/11/Flash_Analysis_-1/">Flash Analysis</a></h4>
+        <div class="article__bottom">
+          <div class="article__author">
+            <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+          </div>
+          <div class="article__bottom-meta">
+            <a href="/about/" class="article__author-link">MalwareOwl</a>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <div class="recent-posts">
       
@@ -728,33 +771,6 @@
       </div>
     </div>
     
-    <div class="recent-posts">
-      
-      <a class="recent-posts__image" href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/"><img class="lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)"></a>
-      
-      <div class="recent-posts__content">
-        <div class="article__meta">
-          <span class="article__minutes">
-            
-            
-              11 min read
-            
-          </span>
-          <time class="article__date"
-            datetime="2022-09-25T19:08:00+00:00">Sep 25, 2022</time>
-        </div>
-        <h4 class="recent-posts__title"><a href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</a></h4>
-        <div class="article__bottom">
-          <div class="article__author">
-            <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-          </div>
-          <div class="article__bottom-meta">
-            <a href="/about/" class="article__author-link">MalwareOwl</a>
-          </div>
-        </div>
-      </div>
-    </div>
-    
 
   </div>
 </div>
@@ -765,7 +781,7 @@
       <h3 class="widget__title">Explore Tags</h3>
     </div>
     <div class="tag__cloud">
-      <a href="/tag/ctf/" class="set-2">CTF</a> <a href="/tag/welcome/" class="set-1">Welcome</a> <a href="/tag/writeups/" class="set-5">Writeups</a>
+      <a href="/tag/ctf/" class="set-2">CTF</a> <a href="/tag/malwareanalysis/" class="set-1">MalwareAnalysis</a> <a href="/tag/welcome/" class="set-1">Welcome</a> <a href="/tag/writeups/" class="set-5">Writeups</a>
     </div>
   </div>
 </div>
@@ -782,7 +798,7 @@
     <div class="row">
       <div class="col col-12">
       <div class="footer__inner">
-        <div class="copyright">2022 &copy; <a href="/">Malware Owl</a>. Crafted & Designed by <a href="https://jekyllthemes.io/developers/artem-sheludko">Artem Sheludko</a>.</div>
+        <div class="copyright">2023 &copy; <a href="/">Malware Owl</a>. Crafted & Designed by <a href="https://jekyllthemes.io/developers/artem-sheludko">Artem Sheludko</a>.</div>
         
 <div class="social">
   <ul class="social__list list-reset">

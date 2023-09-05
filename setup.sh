@@ -19,7 +19,7 @@ if [ $? -ne 0 ]; then
 fi
 
 # Add all changes to git
-echo "Staging changes..."
+echo "Staging changes in Source..."
 git add -A
 
 # Commit with provided message
@@ -30,5 +30,24 @@ git commit -m "$COMMIT_MSG"
 echo "Pushing to repository..."
 git push
 
-echo "Done!"
+echo "Cloning site to Owl4444.github.io"
+cp -r _site/* /root/Owl4444.github.io
+
+
+
+# Add all changes to git
+echo "Staging changes in gitpage ..."
+git add -A
+
+# Commit with provided message
+echo "Committing with message: $COMMIT_MSG"
+git commit -m "$COMMIT_MSG"
+
+# Push to repository
+echo "Pushing to repository..."
+git push
+
+
+echo "DONEE!!"
+
 

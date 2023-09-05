@@ -520,7 +520,7 @@
 
 <h2 id="discussions">Discussions</h2>
 
-<p>Memory forensics techniques can be employed to detect the use of reflective loading, even if the PE file does not exist on disk. Tools such as Volatility can be used to analyze the memory of the compromised system.Volatility’s <code class="language-plaintext highlighter-rouge">malfind</code> module or plugin can detect <strong>common</strong> patterns of reflective loader [5]. The plugin is capable of scanning for regions with <code class="language-plaintext highlighter-rouge">PAGE_EXECUTE_READWRITE</code> memory protection and check for the magic bytes MZ at the beginning of those regions (This is with the assumption that the header content are intact. In this study, since the headers are stripped, it is trickier to detect with <code class="language-plaintext highlighter-rouge">malfind</code> alone ).</p>
+<p>Memory forensics techniques can be employed to detect the use of reflective loading, even if the PE file does not exist on disk. Tools such as Volatility can be used to analyze the memory of the compromised system.Volatility’s <code class="language-plaintext highlighter-rouge">malfind</code> module or plugin can detect <strong>common</strong> patterns of reflective loader [1]. The plugin is capable of scanning for regions with <code class="language-plaintext highlighter-rouge">PAGE_EXECUTE_READWRITE</code> memory protection and check for the magic bytes MZ at the beginning of those regions (This is with the assumption that the header content are intact. In this study, since the headers are stripped, it is trickier to detect with <code class="language-plaintext highlighter-rouge">malfind</code> alone ).</p>
 
 <h2 id="conclusions">Conclusions</h2>
 

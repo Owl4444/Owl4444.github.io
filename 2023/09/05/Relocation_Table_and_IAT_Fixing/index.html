@@ -338,13 +338,13 @@
 
 <p>The block size from the Base Relocation Block refers to an entry in the relocation table. To calculate the number of entries, obtain the size of the entire relocation table subtracting the bytes taken for the <code class="language-plaintext highlighter-rouge">VirtualAddress</code> and <code class="language-plaintext highlighter-rouge">SizeOfBlock</code> and divide by the size of WORD which is used in TypeOffset.</p>
 
-<p><img src="/images/reloc_iat_fixing/gd467e20c86267c721993f07de40115b8.png" alt="d467e20c86267c721993f07de40115b8.png" /></p>
+<p><img src="/images/reloc_iat_fixing/d467e20c86267c721993f07de40115b8.png" alt="d467e20c86267c721993f07de40115b8.png" /></p>
 
 <p>Next, the<code class="language-plaintext highlighter-rouge">FixReloc</code> function iterates through each entry in the relocation block, checking whether the type of relocation is <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_HIGHLOW</code> or <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_DIR64</code> which are the most common type based on how the shellcode is compiled.</p>
 
 <p>The Block Size field is then followed by any number of Type or Offset field entries. Each entry is a WORD (2 bytes) and has the following structure as seen in the same windows documentation:</p>
 
-<p><img src="/images/reloc_iat_fixing/g6637667dd9dac80ffbbc0f467c02d483.png" alt="6637667dd9dac80ffbbc0f467c02d483.png" /></p>
+<p><img src="/images/reloc_iat_fixing/6637667dd9dac80ffbbc0f467c02d483.png" alt="6637667dd9dac80ffbbc0f467c02d483.png" /></p>
 
 <p>If the types are <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_HIGHLOW</code> or <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_DIR64</code>, the the delta offset is added to the addresses from the entry.</p>
 
@@ -443,7 +443,7 @@
 
 <p>The next figure shows how the data structure would look like in a PE file.</p>
 
-<p><img src="/images/reloc_iat_fixing/gaa43ed1e7b8ce14eddc0595234bc8ba8.png" alt="aa43ed1e7b8ce14eddc0595234bc8ba8.png" /></p>
+<p><img src="/images/reloc_iat_fixing/aa43ed1e7b8ce14eddc0595234bc8ba8.png" alt="aa43ed1e7b8ce14eddc0595234bc8ba8.png" /></p>
 
 <h2 id="fixing-the-iat">Fixing the IAT</h2>
 
@@ -516,7 +516,7 @@
 
 <p>A test was done on a simple program and it worked!</p>
 
-<p><img src="/images/reloc_iat_fixing/gede7bb4e1f25d3de7621bbfd563abb3a.png" alt="ede7bb4e1f25d3de7621bbfd563abb3a.png" /></p>
+<p><img src="/images/reloc_iat_fixing/ede7bb4e1f25d3de7621bbfd563abb3a.png" alt="ede7bb4e1f25d3de7621bbfd563abb3a.png" /></p>
 
 <h2 id="discussions">Discussions</h2>
 

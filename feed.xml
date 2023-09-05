@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 05 Sep 2023 09:30:03 +0000</pubDate>
-    <lastBuildDate>Tue, 05 Sep 2023 09:30:03 +0000</lastBuildDate>
+    <pubDate>Tue, 05 Sep 2023 09:46:37 +0000</pubDate>
+    <lastBuildDate>Tue, 05 Sep 2023 09:46:37 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -78,13 +78,13 @@
 
 &lt;p&gt;The block size from the Base Relocation Block refers to an entry in the relocation table. To calculate the number of entries, obtain the size of the entire relocation table subtracting the bytes taken for the &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;VirtualAddress&lt;/code&gt; and &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;SizeOfBlock&lt;/code&gt; and divide by the size of WORD which is used in TypeOffset.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gd467e20c86267c721993f07de40115b8.png&quot; alt=&quot;d467e20c86267c721993f07de40115b8.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/d467e20c86267c721993f07de40115b8.png&quot; alt=&quot;d467e20c86267c721993f07de40115b8.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;Next, the&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;FixReloc&lt;/code&gt; function iterates through each entry in the relocation block, checking whether the type of relocation is &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_HIGHLOW&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_DIR64&lt;/code&gt; which are the most common type based on how the shellcode is compiled.&lt;/p&gt;
 
 &lt;p&gt;The Block Size field is then followed by any number of Type or Offset field entries. Each entry is a WORD (2 bytes) and has the following structure as seen in the same windows documentation:&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/g6637667dd9dac80ffbbc0f467c02d483.png&quot; alt=&quot;6637667dd9dac80ffbbc0f467c02d483.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/6637667dd9dac80ffbbc0f467c02d483.png&quot; alt=&quot;6637667dd9dac80ffbbc0f467c02d483.png&quot; /&gt;&lt;/p&gt;
 
 &lt;p&gt;If the types are &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_HIGHLOW&lt;/code&gt; or &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;IMAGE_REL_BASED_DIR64&lt;/code&gt;, the the delta offset is added to the addresses from the entry.&lt;/p&gt;
 
@@ -183,7 +183,7 @@
 
 &lt;p&gt;The next figure shows how the data structure would look like in a PE file.&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gaa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; alt=&quot;aa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/aa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; alt=&quot;aa43ed1e7b8ce14eddc0595234bc8ba8.png&quot; /&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;fixing-the-iat&quot;&gt;Fixing the IAT&lt;/h2&gt;
 
@@ -256,7 +256,7 @@
 
 &lt;p&gt;A test was done on a simple program and it worked!&lt;/p&gt;
 
-&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/gede7bb4e1f25d3de7621bbfd563abb3a.png&quot; alt=&quot;ede7bb4e1f25d3de7621bbfd563abb3a.png&quot; /&gt;&lt;/p&gt;
+&lt;p&gt;&lt;img src=&quot;/images/reloc_iat_fixing/ede7bb4e1f25d3de7621bbfd563abb3a.png&quot; alt=&quot;ede7bb4e1f25d3de7621bbfd563abb3a.png&quot; /&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;discussions&quot;&gt;Discussions&lt;/h2&gt;
 

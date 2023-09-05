@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>https://Owl4444.github.io/</link>
     <atom:link href="https://owl4444.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 05 Sep 2023 09:49:21 +0000</pubDate>
-    <lastBuildDate>Tue, 05 Sep 2023 09:49:21 +0000</lastBuildDate>
+    <pubDate>Tue, 05 Sep 2023 10:01:55 +0000</pubDate>
+    <lastBuildDate>Tue, 05 Sep 2023 10:01:55 +0000</lastBuildDate>
     <generator>Jekyll v4.2.2</generator>
     
       <item>
@@ -261,10 +261,6 @@
 &lt;h2 id=&quot;discussions&quot;&gt;Discussions&lt;/h2&gt;
 
 &lt;p&gt;Memory forensics techniques can be employed to detect the use of reflective loading, even if the PE file does not exist on disk. Tools such as Volatility can be used to analyze the memory of the compromised system.Volatility’s &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;malfind&lt;/code&gt; module or plugin can detect &lt;strong&gt;common&lt;/strong&gt; patterns of reflective loader [1]. The plugin is capable of scanning for regions with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;PAGE_EXECUTE_READWRITE&lt;/code&gt; memory protection and check for the magic bytes MZ at the beginning of those regions (This is with the assumption that the header content are intact. In this study, since the headers are stripped, it is trickier to detect with &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;malfind&lt;/code&gt; alone ).&lt;/p&gt;
-
-&lt;h2 id=&quot;conclusions&quot;&gt;Conclusions&lt;/h2&gt;
-
-&lt;p&gt;Reflective Loading is a code injection technique used to detect evasion by common techniques. Furthermore, with the stripped PE header, it is trickier to detect since the MZ and PE signatures are not present even after loading. With the help of simple single-byte xor encryption of payload and use of custom structures, it makes it slightly harder to reverse engineer the payload.&lt;/p&gt;
 
 &lt;h2 id=&quot;references&quot;&gt;References&lt;/h2&gt;
 &lt;ol&gt;

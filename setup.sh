@@ -34,6 +34,7 @@ echo "Cloning site to Owl4444.github.io"
 cp -r _site/* /root/Owl4444.github.io
 
 
+cd /root/Owl4444.github.io
 
 # Add all changes to git
 echo "Staging changes in gitpage ..."

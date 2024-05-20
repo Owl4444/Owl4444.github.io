@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Page not found</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</title>
+  <meta name='description' content='In this part, we will see how basic shellcode works and how we move from the TEB structure to getting Kernel32.dll base address to getting WinExec's function...'>
 
-  <link rel="canonical" href="http://localhost:4000/404.html">
+  <link rel="canonical" href="http://localhost:4000/2022/09/08/Understanding_64_bits_Windows_10_Shellcode/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -213,40 +213,510 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/140.jpg" alt="Page not found">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">Page not found</h1>
-    </div>
-  </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <div class="container">
-  <div class="row">
-    <div class="col col-12" style="text-align: center">
-      <h2 style="font-size: 48px">404</h2>
-      <p>The requested page could not be found.</p>
-      <p><a href="/" class="button button--middle" style="text-decoration: none; border: none">Back to the blog</a></p>
-      <hr>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/windows10shellcodePart1/Windows10Shellcodepart1.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                7 min read
+              
+              <time class="post__date"
+                datetime="2022-09-08T05:12:00+08:00">Sep 8, 2022</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="understanding-64-bits-windows-10-shellcode-calcexe---part-1">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h1>
+
+<h2 id="description">Description</h2>
+
+<p>As malware analyst or red teamer, we should be able to understand some of the more common shellcodes that are written. It also helps us understand what are some of the possiblities out there that can help malware authors run custom payloads as well. Shellcode written can also be used for exploits to run code in the context of the exploited program. It can also be used as payload injection during process injection and more.</p>
+
+<p>In this post, we will begin by going through the intuition of the shellcode before going on to write our own.  We will cover how we go from Thread Environment Block (TEB) structure to finding out the base address of target DLL. We will also see how to derive the WinExec function pointer which is then used to spawn our calculator or actually any program that we want to run. For visual learners, I have created diagrams to help understand what we are about to go through for the rest of the post.</p>
+
+<h3 id="getting-base-addresses-of-loaded-modules">Getting Base Addresses of Loaded Modules</h3>
+
+<p><img src="/images/windows10shellcodePart1/PEB_to_entry.png" alt="PEB_to_entry.png" /></p>
+
+<p>The Thread Environment Block is a data structure that stores information about the currently running thread. If the shellcode is being run in the process, getting this information allows us to access and traverse through other data structures to achieve our goal. The following shows the data structure of the TEB in WinDbg. Using the <code class="language-plaintext highlighter-rouge">!teb</code> command, we can see the location of the TEB of the current process.</p>
+
+<p><img src="/images/windows10shellcodePart1/teb_structure.png" alt="teb_structure.png" /></p>
+
+<p>To progress, we need more information about the current process as it stores crucial information. Information includes memory location of loaded DLL and modules that are being loaded in memory in the current process.</p>
+
+<p>As you can see, at offset 0x60, it points to a structure called <code class="language-plaintext highlighter-rouge">ProcessEnvironmentBlock</code> (PEB). That is the structure that we are interested in to get those information about loaded modules and DLLs.</p>
+
+<p>The following shows the first few fields that can be found in the PEB structure. This structure address can also be found via <code class="language-plaintext highlighter-rouge">!peb</code> command in WinDBG.</p>
+
+<p><img src="/images/windows10shellcodePart1/peb_structure.png" alt="peb_structure.png" /></p>
+
+<p>The get the loaded data, let me bring your attention to offset 0x18 of the PEB structure which corresponds to the <code class="language-plaintext highlighter-rouge">Ldr</code> field of type <a href="https://docs.microsoft.com/en-us/windows/win32/api/winternl/ns-winternl-peb_ldr_data"><code class="language-plaintext highlighter-rouge">_PEB_LDR_DATA</code></a>.</p>
+
+<p><img src="/images/windows10shellcodePart1/peb_ldr_data.png" alt="peb_ldr_data.png" />
+<code class="language-plaintext highlighter-rouge">_PEB_LDR_DATA</code> contains a field called <code class="language-plaintext highlighter-rouge">InMemoryOrderModuleList</code>.</p>
+
+<p>The <code class="language-plaintext highlighter-rouge">InMemoryOrderModuleList</code> contains a pointer to the head of a doubly-linked list.  The head of the doubly linked list is a <code class="language-plaintext highlighter-rouge">_LIST_ENTRY</code> which contains <code class="language-plaintext highlighter-rouge">Flink</code> and <code class="language-plaintext highlighter-rouge">Blink</code> so that it is possible to traverse and get information of loaded modules.</p>
+
+<p>An important note is that, the <code class="language-plaintext highlighter-rouge">Flink</code> and <code class="language-plaintext highlighter-rouge">Blink</code> pointer lives within the <code class="language-plaintext highlighter-rouge">LDR_DATA_TABLE_ENTRY</code> structure.</p>
+
+<p><img src="/images/windows10shellcodePart1/LDR_DATA_TABLE_ENTRY.png" alt="LDR_DATA_TABLE_ENTRY.png" /></p>
+
+<p>The exciting thing now is that we are able to see some information including :</p>
+<ul>
+  <li>DllBase</li>
+  <li>BaseDllName</li>
+  <li>Entry Point</li>
+</ul>
+
+<p>To calculate the address of the <code class="language-plaintext highlighter-rouge">LDR_DATA_TABLE_ENTRY</code> structure from the address of the <code class="language-plaintext highlighter-rouge">_LIST_ENTRY</code>, we have to subtract 0x10 from <code class="language-plaintext highlighter-rouge">_LIST_ENTRY</code>.</p>
+
+<p>Notice how if we get the LDR_DATA_TABLE_ENTRY from the first flink from <code class="language-plaintext highlighter-rouge">InMemoryOrderModuleList</code>, the BaseDllName actually shows the current executable.</p>
+
+<p><img src="/images/windows10shellcodePart1/LDR_DATA_TABLE_ENTRY2.png" alt="dlr data table populated" /></p>
+
+<p>If we continue down the Linked List, we will see</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>currentModule -&gt; C:\WINDOWS\SYSTEM32\ntdll.dll -&gt; C:\WINDOWS\System32\KERNEL32.DLL
+</code></pre></div></div>
+
+<p>Since WinExec function is exported from Kernel32.dll, we will want to get the DllBase from the table entry too. We may include in our shellcode to do a linked list traversal and comparing with the “kernel32.dll” string or we can just traverse twice and assume that we can get the kernel32.dll with confidence.</p>
+
+<p>Here is the flink that leads us to the loaded Kernel32.dll information.</p>
+
+<p><img src="/images/windows10shellcodePart1/loaded_kernel32_info.png" alt="loaded_kernel32_info.png" /></p>
+
+<p>Now that we have the DllBase address, we can deal with Kernel32.dll as a PE File as well. Here we can see the MZ Signature.</p>
+
+<p><img src="/images/windows10shellcodePart1/kernel32dllPE.png" alt="kernel32dllPE.png" /></p>
+
+<h3 id="locating-the-export-table">Locating the Export Table</h3>
+
+<p><img src="/images/windows10shellcodePart1/diagramexporttable.png" alt="diagramexporttable.png" /></p>
+
+<p>Now that we have obtained the DllBase Virtual Address of Kernel32.dll which is loaded in memory, we can now attempt to traverse the PE File data structures to locate the export table.</p>
+
+<p>With the help of PE-Bear, we can further affirm what we see in the figure. Looking at the DOS header, we know that at offset 0x3c, it contains the file offset which points to the new exe header which contains “PE” value.</p>
+
+<p><img src="/images/windows10shellcodePart1/newexeheader.png" alt="newexeheader.png" /></p>
+
+<p>Next, at offset 0x180 (0x88 bytes after the new EXE header), it contains the Relative Virtual Address(RVA) 0x980a0 of the export directory from which we want to find the WinExec function from. To do a quick calculation, the file offset address (FOA) is ` raw Address + ( RVA - VirtualAddress  ) = 0x7e000 + 0x980a0 - 0x7e000 = 0x980a0<code class="language-plaintext highlighter-rouge">. Though not necessary, you can check out this [post](https://owl4444.github.io/2022/09/06/Flare-On-2016-DudeLocker/) to learn more about calculating File Offset Address. We can get the values from the </code>.rdata` in the Section Headers. Furthermore, to get the Virtual Address, we need to add the DllBase Virtual address with the RVA since we are talking about Virtual address instead of raw file offset.</p>
+
+<p><img src="/images/windows10shellcodePart1/section_headers.png" alt="section_headers.png" /></p>
+
+<p>Now, if we check the exports tab, we should see 0x980a0 being the offset. 
+<img src="/images/windows10shellcodePart1/kernel32dllexporttable.png" alt="kernel32dllexporttable.png" /></p>
+
+<p>One thing we can learn from looking at the exports function is that each function name has an ordinal mapped to it. For instance, <code class="language-plaintext highlighter-rouge">AcquireSRWLockExclusive</code> has ordinal value of 1 and for <code class="language-plaintext highlighter-rouge">WinExec</code> has ordinal value of 0x62B in this executable.</p>
+
+<h3 id="iterating-and-obtaining-the-function-address">Iterating and Obtaining the Function Address</h3>
+
+<p>To understand how this work, we need to understand what Ordinal value is used for. It basically acts like a small redirection or index that maps function name to the function address. The ordinal value (like the index) is being stored in a separate table altogether starting with the value of 1 and incrementing in steps of 1.</p>
+
+<p><img src="/images/windows10shellcodePart1/diagram_shellcode_end.png" alt="diagram_shellcode_end.png" /></p>
+
+<p>Note that at fixed offsets from the start of the export table, we can get RVA to different tables. They are :</p>
+
+<ol>
+  <li>RVA of Function Table -&gt; 0x1c + (Virtual Address of Export Table)</li>
+  <li>RVA of Name Table -&gt; 0x20 + (Virtual Address of Export Table)</li>
+  <li>RVA of Name Ordinal Table -&gt; 0x24 + (Virtual Address of Export Table)</li>
+</ol>
+
+<p><img src="/images/windows10shellcodePart1/exporttable.png" alt="exporttable.png" /></p>
+
+<p>To calculate the virtual addresses for these tables, we simply add the DllBase address to it. The function table annotated here points to the RVA of functions. Name table here contains RVA to function names (This is where we want to look for WinExec function). Finally, the ordinal Table (Something we are not gonna really use) contains “indexes” as explained depending on the position of functions.</p>
+
+<p>That said, to find the function address of <code class="language-plaintext highlighter-rouge">WinExec</code>, we need to get the position or ordinal of “WinExec” String in the Function Name Table. We do this by comparind strings from the first position of the function name table till we find the “WinExec” string that we desire.</p>
+
+<p><img src="/images/windows10shellcodePart1/FunctionNameTable.png" alt="FunctionNameTable.png" />
+<em>Function Name Table</em></p>
+
+<p>The position is annotated as <code class="language-plaintext highlighter-rouge">N</code> in the diagram since this value may change depending on versions of the module. The reason we mulitply by 4 is because the ordinal refers to the N’th element or index of 4 bytes (size of RVA value == DWORD). Finally, since we have the ordinal and that the ordinal table contains value from position 0 (rather than 1 like ordinal), we can effectively just subtract 1 from the ordinal value N.</p>
+
+<p><img src="/images/windows10shellcodePart1/ordinal_to_functionaddress.png" alt="ordinal_to_functionaddress.png" /></p>
+
+<p>Once again, we can now use the new position (N-1) to find the RVA of the function address that we are interested in who Virtual Address can be calculated again by adding the DllBase Address.</p>
+
+<p>Here is the full picture of the illustration t:</p>
+
+<p><img src="/images/windows10shellcodePart1/Windows_Shellcoding_flow_dark.png" alt="Windows_Shellcoding_flow_dark.png" />
+<em>Windows Shellcoding x64 Illustration- Calc.exe</em></p>
+
+<p>In the second part of the understand Windwows Shellcode, we will be writing the Shellcode using this flow diagram. Hopefully, this will be useful for the readers.</p>
+
+<hr />
+
+
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://localhost:4000/2022/09/08/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201&url=http://localhost:4000/2022/09/08/Understanding_64_bits_Windows_10_Shellcode/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://localhost:4000/2022/09/08/Understanding_64_bits_Windows_10_Shellcode/&amp;media=http://localhost:4000/images/windows10shellcodePart1/Windows10Shellcodepart1.png&amp;description=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%201" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2022/09/07/Flare-On-2016-DudeLocker/">
+        <img class="post__nav-image lazy" data-src="/images/DudeLocker_background.png" alt="DudeLocker (Flare-on 2016) - RVA and Import Descriptors">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">DudeLocker (Flare-on 2016) - RVA and Import Descriptors</h4>
+        </div>
+      </a>
+      
+      
+      <a class="next" href="/2022/09/10/Understanding_64_bits_Windows_10_Shellcode_part_2/">
+        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
+          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h4>
+        </div>
+      </a>
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/06/13/Quick_Study_of_BYOVD/">
+                  <img class="lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-06-13T09:27:00+08:00">Jun 13, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h2>
+
+                  <p class="article__excerpt">Quick Study of BYOVD including Root Cause Analysis and how it can be abused by attackers to disable or evade security solutions.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/26/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        22 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-26T02:45:00+08:00">Mar 26, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+                  <img class="lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-11-12T18:10:00+08:00">Nov 12, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Flare-on 9 - Challenge 9 and 11</h2>
+
+                  <p class="article__excerpt">This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -272,7 +742,7 @@
           <span class="article__minutes">
             
             
-              17 min read
+              9 min read
             
           </span>
           <time class="article__date"
@@ -299,7 +769,7 @@
           <span class="article__minutes">
             
             
-              13 min read
+              10 min read
             
           </span>
           <time class="article__date"

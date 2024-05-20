@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Page not found</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File</title>
+  <meta name='description' content='A dive into the fixing of Reloc table and IAT by creating a reflective loader.'>
 
-  <link rel="canonical" href="http://localhost:4000/404.html">
+  <link rel="canonical" href="http://localhost:4000/2023/09/05/Relocation_Table_and_IAT_Fixing/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -213,40 +213,643 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/140.jpg" alt="Page not found">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">Page not found</h1>
-    </div>
-  </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <div class="container">
-  <div class="row">
-    <div class="col col-12" style="text-align: center">
-      <h2 style="font-size: 48px">404</h2>
-      <p>The requested page could not be found.</p>
-      <p><a href="/" class="button button--middle" style="text-decoration: none; border: none">Back to the blog</a></p>
-      <hr>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/reloc_iat_fixing/backgroundimage.png" alt="Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                13 min read
+              
+              <time class="post__date"
+                datetime="2023-09-05T17:22:00+08:00">Sep 5, 2023</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/QuickPeek" class="post__tag">QuickPeek</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="reflective-loading-of-pe-file">Reflective Loading of PE File</h1>
+
+<p>Reflective loading is a powerful technique used by malware authors to evade detection and execute malicious code. By loading a Dynamic-Link Library (DLL) or Portable Executable (PE) file directly into memory, without relying on the operating system’s loader, reflective loading can bypass traditional security measures that are designed to prevent unauthorized code execution. According to the MITRE ATT&amp;CK Framework, it identifies reflective loading as a commonly used technique by adversaries (MITRE,2022).</p>
+
+<p>This post demonstrates would not provide the full code on how reflective loading works but partial ones on the more important concepts that I have been wanting to learn. To be able to create my own reflective loader, it is crucial to understand what relocation table is and how IAT (I am trying to load a PE file instead of DLL instead) should be fixed for Windows to understand how to run the file.</p>
+
+<p>The first few steps includes:</p>
+<ol>
+  <li>Reading RAW PE file content to a memory buffer</li>
+  <li>Parsing the PE Header to get important loader information. For instance:
+    <ul>
+      <li>Section RVA</li>
+      <li>Section sizes</li>
+      <li>Image Size</li>
+      <li>EntryPoint</li>
+      <li>etc</li>
+    </ul>
+  </li>
+  <li>Create another buffer for loading based on information of PE header</li>
+  <li>Copy all the sections to the respective Virtual Addresses</li>
+  <li>Fix the relocation table</li>
+  <li>Fix the Import Address Table (IAT)</li>
+</ol>
+
+<p>For this post, I will jump straight to point 5 and 6.</p>
+
+<h2 id="relocation-table">Relocation Table</h2>
+
+<p>To better understand this section, it is recommended to read the .reloc Section(Image Only) from windows <a href="https://learn.microsoft.com/en-us/windows/win32/debug/pe-format">documentation</a>.</p>
+
+<p>When binary file is loaded, the preferred image base address is not garaunteed to be available all the time. This is especially true for our case since we are loading this on top of another binary in the same memory address space. To fix this, the <code class="language-plaintext highlighter-rouge">FixReloc</code> function is responsible for fixing relocation errors in the shellcode that may occur during the loading process. For this to happen, the delta value is calculated to offset the current image base address from the preferred address.</p>
+
+<h2 id="fixing-the-reloc-table">Fixing the Reloc Table</h2>
+<p>A <code class="language-plaintext highlighter-rouge">FixReloc</code> function was created to fix relocation table. It begins by calculating the delta value as mentioned. Recall that during the loading of the PE file, we needed to create a heap with RWX permission. Heap address allocated is not fixed and its address is stored in <code class="language-plaintext highlighter-rouge">pCustomLoaderInfo-&gt;ImageBase</code>. The <code class="language-plaintext highlighter-rouge">pCustomLoaderInfo</code> is just a struct containing the relevant PE header data. This value is usually not the preferred image base. To correct this, the delta offset is calculated. The <code class="language-plaintext highlighter-rouge">shellcode</code> in these code snippets refers to the PE file that we are trying to load.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">FixReloc</span><span class="p">(</span><span class="n">PBYTE</span> <span class="n">shellcode_load_address</span><span class="p">,</span> <span class="n">PCUSTOM_LOADER_INFO</span> <span class="n">pCustomLoaderInfo</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Calculate the delta for offseting </span>
+    <span class="n">DWORD</span> <span class="n">delta</span> <span class="o">=</span> <span class="n">shellcode_load_address</span> <span class="o">-</span> <span class="n">pCustomLoaderInfo</span><span class="o">-&gt;</span><span class="n">ImageBase</span><span class="p">;</span>
+    <span class="c1">// If delta is 0 then the image is already at the preferred image base address</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">delta</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+    <span class="p">...</span>
+    <span class="p">...</span>
+</code></pre></div></div>
+
+<p>Next in line, the function searches for the relocation section in the shellcode using virtual address specified in the loader configuration, <code class="language-plaintext highlighter-rouge">pCustomLoaderInfo-&gt;VA_Reloc</code>. Adding this Virtual Address to the <code class="language-plaintext highlighter-rouge">shellcode_load_address</code> would point us to <code class="language-plaintext highlighter-rouge">PIMAGE_BASE_RELOCATION</code> structure.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    <span class="c1">// Find the reloc section</span>
+    <span class="n">PIMAGE_BASE_RELOCATION</span> <span class="n">pRelocTable</span> <span class="o">=</span> <span class="p">(</span><span class="n">PIMAGE_BASE_RELOCATION</span><span class="p">)(</span><span class="n">pCustomLoaderInfo</span><span class="o">-&gt;</span><span class="n">VA_Reloc</span> <span class="o">+</span> <span class="n">shellcode_load_address</span><span class="p">);</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">pRelocTable</span><span class="o">-&gt;</span><span class="n">SizeOfBlock</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span> <span class="n">TRUE</span><span class="p">;</span> 
+    <span class="p">}</span>
+</code></pre></div></div>
+
+<p>Each base relocation block starts with the following structure:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_BASE_RELOCATION</span> <span class="p">{</span>
+    <span class="n">DWORD</span>   <span class="n">VirtualAddress</span><span class="p">;</span>
+    <span class="n">DWORD</span>   <span class="n">SizeOfBlock</span><span class="p">;</span>
+<span class="c1">//  WORD    TypeOffset[1];</span>
+<span class="p">}</span> <span class="n">IMAGE_BASE_RELOCATION</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">IMAGE_BASE_RELOCATION</span> <span class="n">UNALIGNED</span> <span class="o">*</span> <span class="n">PIMAGE_BASE_RELOCATION</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>The block size from the Base Relocation Block refers to an entry in the relocation table. To calculate the number of entries, obtain the size of the entire relocation table subtracting the bytes taken for the <code class="language-plaintext highlighter-rouge">VirtualAddress</code> and <code class="language-plaintext highlighter-rouge">SizeOfBlock</code> and divide by the size of WORD which is used in TypeOffset.</p>
+
+<p><img src="/images/reloc_iat_fixing/d467e20c86267c721993f07de40115b8.png" alt="d467e20c86267c721993f07de40115b8.png" /></p>
+
+<p>Next, the<code class="language-plaintext highlighter-rouge">FixReloc</code> function iterates through each entry in the relocation block, checking whether the type of relocation is <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_HIGHLOW</code> or <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_DIR64</code> which are the most common type based on how the shellcode is compiled.</p>
+
+<p>The Block Size field is then followed by any number of Type or Offset field entries. Each entry is a WORD (2 bytes) and has the following structure as seen in the same windows documentation:</p>
+
+<p><img src="/images/reloc_iat_fixing/6637667dd9dac80ffbbc0f467c02d483.png" alt="6637667dd9dac80ffbbc0f467c02d483.png" /></p>
+
+<p>If the types are <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_HIGHLOW</code> or <code class="language-plaintext highlighter-rouge">IMAGE_REL_BASED_DIR64</code>, the the delta offset is added to the addresses from the entry.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">FixReloc</span><span class="p">(</span><span class="n">PBYTE</span> <span class="n">shellcode_load_address</span><span class="p">,</span> <span class="n">PCUSTOM_LOADER_INFO</span> <span class="n">pCustomLoaderInfo</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Calculate the delta for offseting </span>
+    <span class="n">DWORD</span> <span class="n">delta</span> <span class="o">=</span> <span class="n">shellcode_load_address</span> <span class="o">-</span> <span class="n">pCustomLoaderInfo</span><span class="o">-&gt;</span><span class="n">ImageBase</span><span class="p">;</span>
+    <span class="c1">// If delta is 0 then the image is already at the preferred image base address</span>
+    <span class="k">if</span> <span class="p">(</span><span class="n">delta</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="k">return</span><span class="p">;</span>
+    <span class="p">}</span>
+
+    <span class="c1">// For each of the entry</span>
+    <span class="k">while</span> <span class="p">(</span><span class="n">pRelocTable</span><span class="o">-&gt;</span><span class="n">VirtualAddress</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        
+        <span class="n">DWORD</span> <span class="n">entriesCount</span> <span class="o">=</span> <span class="p">(</span><span class="n">pRelocTable</span><span class="o">-&gt;</span><span class="n">SizeOfBlock</span> <span class="o">-</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">IMAGE_BASE_RELOCATION</span><span class="p">))</span> <span class="o">/</span> <span class="k">sizeof</span><span class="p">(</span><span class="n">WORD</span><span class="p">);</span>
+        <span class="n">PWORD</span> <span class="n">pRelocationData</span> <span class="o">=</span> <span class="p">(</span><span class="n">PWORD</span><span class="p">)(</span><span class="n">pRelocTable</span> <span class="o">+</span> <span class="mi">1</span><span class="p">);</span>
+
+        <span class="k">for</span> <span class="p">(</span><span class="kt">int</span> <span class="n">j</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span> <span class="n">j</span> <span class="o">&lt;</span> <span class="n">entriesCount</span><span class="p">;</span> <span class="n">j</span><span class="o">++</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">WORD</span> <span class="n">type</span> <span class="o">=</span> <span class="n">pRelocationData</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&gt;&gt;</span> <span class="mi">12</span><span class="p">;</span>
+            <span class="n">WORD</span> <span class="n">offset</span> <span class="o">=</span> <span class="n">pRelocationData</span><span class="p">[</span><span class="n">j</span><span class="p">]</span> <span class="o">&amp;</span> <span class="mh">0xfff</span><span class="p">;</span>
+
+            <span class="c1">// Check relation if IMAGE_REL_BASED_HIGHLOW (3) or IMAGE_REL_BASED_DIR64</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">type</span> <span class="o">==</span> <span class="n">IMAGE_REL_BASED_HIGHLOW</span> <span class="o">||</span> <span class="n">type</span> <span class="o">==</span> <span class="n">IMAGE_REL_BASED_DIR64</span><span class="p">)</span> <span class="p">{</span>
+                <span class="c1">// Adjust the values here</span>
+                <span class="c1">// IMAGE_BASE_RELOCATION.VirtualAddress + offset + shellcode loaded address</span>
+                <span class="n">DWORD</span><span class="o">*</span> <span class="n">address_to_relocate</span> <span class="o">=</span> <span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">pRelocTable</span><span class="o">-&gt;</span><span class="n">VirtualAddress</span> <span class="o">+</span> <span class="n">offset</span><span class="p">;</span> <span class="c1">// The pRelocTable is really the RVA</span>
+                <span class="o">*</span><span class="n">address_to_relocate</span> <span class="o">=</span> <span class="o">*</span><span class="n">address_to_relocate</span> <span class="o">+</span> <span class="n">delta</span><span class="p">;</span> <span class="c1">// Notice that all values at address_to_relocate are actual addresses</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        
+        <span class="c1">// Move to next relocatin block </span>
+        <span class="n">pRelocTable</span> <span class="o">=</span> <span class="p">(</span><span class="n">PIMAGE_BASE_RELOCATION</span><span class="p">)((</span><span class="n">PBYTE</span><span class="p">)</span><span class="n">pRelocTable</span> <span class="o">+</span> <span class="n">pRelocTable</span><span class="o">-&gt;</span><span class="n">SizeOfBlock</span><span class="p">);</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>One thing learnt during this study is that reloc entries contains offsets to jumpable addresses. Therefore it is crucial to fix these relocations should the preferred image base address is not available.</p>
+
+<h2 id="import-address-table-iat">Import Address Table (IAT)</h2>
+
+<p>The Import Address Table (IAT) is a structure that contains addresses of functions imported by the shellcode. In order to properly execute the shellcode, the <code class="language-plaintext highlighter-rouge">FixIAT</code> function is created to fix the Import Address Table of the shellcode to point to the correct addresses of the imported functions.</p>
+
+<p>To help understand the code to come, here is what the structures look like in the PE file. The IAT can contain multiple <code class="language-plaintext highlighter-rouge">IMAGE_IMPORT_DESCRIPTOR</code>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_IMPORT_DESCRIPTOR</span> <span class="p">{</span>
+    <span class="k">union</span> <span class="p">{</span>
+        <span class="n">DWORD</span>   <span class="n">Characteristics</span><span class="p">;</span>            <span class="c1">// 0 for terminating null import descriptor</span>
+        <span class="n">DWORD</span>   <span class="n">OriginalFirstThunk</span><span class="p">;</span>         <span class="c1">// RVA to original unbound IAT (PIMAGE_THUNK_DATA)</span>
+    <span class="p">}</span> <span class="n">DUMMYUNIONNAME</span><span class="p">;</span>
+    <span class="n">DWORD</span>   <span class="n">TimeDateStamp</span><span class="p">;</span>                  <span class="c1">// 0 if not bound,</span>
+                                            <span class="c1">// -1 if bound, and real date\time stamp</span>
+                                            <span class="c1">//     in IMAGE_DIRECTORY_ENTRY_BOUND_IMPORT (new BIND)</span>
+                                            <span class="c1">// O.W. date/time stamp of DLL bound to (Old BIND)</span>
+
+    <span class="n">DWORD</span>   <span class="n">ForwarderChain</span><span class="p">;</span>                 <span class="c1">// -1 if no forwarders</span>
+    <span class="n">DWORD</span>   <span class="n">Name</span><span class="p">;</span>
+    <span class="n">DWORD</span>   <span class="n">FirstThunk</span><span class="p">;</span>                     <span class="c1">// RVA to IAT (if bound this IAT has actual addresses)</span>
+<span class="p">}</span> <span class="n">IMAGE_IMPORT_DESCRIPTOR</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">IMAGE_IMPORT_DESCRIPTOR</span> <span class="n">UNALIGNED</span> <span class="o">*</span><span class="n">PIMAGE_IMPORT_DESCRIPTOR</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>Note that it contains Relative Virtual Addresses to</p>
+
+<ol>
+  <li>Original First Thunk (imported function name table which is dubbed as Import Name Table throughout this study)</li>
+  <li>First Thunk which points to the ordinal table.</li>
+  <li>Name which is the name of the DLL.</li>
+</ol>
+
+<p>The following shows the struct of the thunk data. Focus on both ordinal and Address of Data which a points to <code class="language-plaintext highlighter-rouge">IMAGE_IMPORT_BY_NAME</code>.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_THUNK_DATA64</span> <span class="p">{</span>
+    <span class="k">union</span> <span class="p">{</span>
+        <span class="n">ULONGLONG</span> <span class="n">ForwarderString</span><span class="p">;</span>  <span class="c1">// PBYTE </span>
+        <span class="n">ULONGLONG</span> <span class="n">Function</span><span class="p">;</span>         <span class="c1">// PDWORD</span>
+        <span class="n">ULONGLONG</span> <span class="n">Ordinal</span><span class="p">;</span>
+        <span class="n">ULONGLONG</span> <span class="n">AddressOfData</span><span class="p">;</span>    <span class="c1">// PIMAGE_IMPORT_BY_NAME</span>
+    <span class="p">}</span> <span class="n">u1</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">IMAGE_THUNK_DATA64</span><span class="p">;</span>
+<span class="k">typedef</span> <span class="n">IMAGE_THUNK_DATA64</span> <span class="o">*</span> <span class="n">PIMAGE_THUNK_DATA64</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>To resolve all the functions, the function iterates through each Import Descriptor after every<code class="language-plaintext highlighter-rouge">_IMAGE_IMPORT_BY_NAME</code> is visited. Upon visitation, <code class="language-plaintext highlighter-rouge">GetProcAddress</code> resolves function name to function addresses.</p>
+
+<p>The following presents the struct of <code class="language-plaintext highlighter-rouge">IMAGE_IMPORT_BY_NAME</code>:</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_IMPORT_BY_NAME</span> <span class="p">{</span>
+    <span class="n">WORD</span>    <span class="n">Hint</span><span class="p">;</span>
+    <span class="n">CHAR</span>   <span class="n">Name</span><span class="p">[</span><span class="mi">1</span><span class="p">];</span>
+<span class="p">}</span> <span class="n">IMAGE_IMPORT_BY_NAME</span><span class="p">,</span> <span class="o">*</span><span class="n">PIMAGE_IMPORT_BY_NAME</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>Hint here is used for quicker resolution but is not necessary in our study.</p>
+
+<p>In this study, the function name table is used because the <code class="language-plaintext highlighter-rouge">IMAGE_ORDINAL_FLAG</code> is not set. This probably happens because of how the shellcode is compiled.</p>
+
+<p>The next figure shows how the data structure would look like in a PE file.</p>
+
+<p><img src="/images/reloc_iat_fixing/aa43ed1e7b8ce14eddc0595234bc8ba8.png" alt="aa43ed1e7b8ce14eddc0595234bc8ba8.png" /></p>
+
+<h2 id="fixing-the-iat">Fixing the IAT</h2>
+
+<p>The following snippet shows how the fixing of IAT is possible.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">void</span> <span class="nf">FixIAT</span><span class="p">(</span><span class="n">BYTE</span><span class="o">*</span> <span class="n">shellcode_load_address</span><span class="p">,</span> <span class="n">PCUSTOM_LOADER_INFO</span> <span class="n">pCustomLoaderInfo</span><span class="p">)</span> <span class="p">{</span>
+    <span class="c1">// Contains Virtual Address that points to Import Descriptor</span>
+    <span class="n">PIMAGE_IMPORT_DESCRIPTOR</span> <span class="n">pImportDescriptor</span> <span class="o">=</span> <span class="p">(</span><span class="n">PIMAGE_IMPORT_DESCRIPTOR</span><span class="p">)(</span><span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">pCustomLoaderInfo</span><span class="o">-&gt;</span><span class="n">VA_Import</span><span class="p">);</span>
+    
+    <span class="k">while</span> <span class="p">(</span><span class="n">pImportDescriptor</span><span class="o">-&gt;</span><span class="n">Name</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+        <span class="c1">// Import the modules that we need</span>
+        <span class="n">PBYTE</span> <span class="n">dllname</span> <span class="o">=</span> <span class="p">(</span><span class="n">pImportDescriptor</span><span class="o">-&gt;</span><span class="n">Name</span> <span class="o">+</span> <span class="n">shellcode_load_address</span><span class="p">);</span>
+        <span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\n\n</span><span class="s">Loading from %s "</span><span class="p">,</span> <span class="n">dllname</span><span class="p">);</span>
+        
+        <span class="n">HMODULE</span> <span class="n">dllModule</span> <span class="o">=</span> <span class="n">LoadLibraryA</span><span class="p">(</span><span class="n">dllname</span><span class="p">);</span>
+        <span class="k">if</span> <span class="p">(</span><span class="o">!</span><span class="n">dllModule</span><span class="p">)</span> <span class="p">{</span>
+            <span class="n">printf</span><span class="p">(</span><span class="s">"[x] Error : Unable to load %s</span><span class="se">\n</span><span class="s">"</span><span class="p">,</span> <span class="n">dllname</span><span class="p">);</span>
+            <span class="k">return</span> <span class="o">-</span><span class="mi">1</span><span class="p">;</span>
+        <span class="p">}</span>
+        <span class="c1">// Click into definition for PIMAGE_THUNK_DATA and you will find interesting helper functions</span>
+        <span class="n">PIMAGE_THUNK_DATA</span> <span class="n">pIat</span> <span class="o">=</span> <span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">pImportDescriptor</span><span class="o">-&gt;</span><span class="n">FirstThunk</span><span class="p">;</span>
+        <span class="n">PIMAGE_THUNK_DATA</span> <span class="n">pInt</span> <span class="o">=</span> <span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">pImportDescriptor</span><span class="o">-&gt;</span><span class="n">OriginalFirstThunk</span><span class="p">;</span>
+
+        <span class="c1">//iterate through the IAT and INT</span>
+        <span class="k">while</span> <span class="p">(</span><span class="n">pInt</span><span class="o">-&gt;</span><span class="n">u1</span><span class="p">.</span><span class="n">AddressOfData</span> <span class="o">!=</span> <span class="mi">0</span><span class="p">)</span> <span class="p">{</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">pInt</span><span class="o">-&gt;</span><span class="n">u1</span><span class="p">.</span><span class="n">Ordinal</span> <span class="o">&amp;</span> <span class="n">IMAGE_ORDINAL_FLAG</span><span class="p">)</span> <span class="p">{</span>
+                <span class="c1">// Search by ordinal</span>
+                <span class="n">WORD</span> <span class="n">ordinal</span> <span class="o">=</span> <span class="n">IMAGE_ORDINAL</span><span class="p">(</span><span class="o">*</span><span class="p">(</span><span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">pInt</span><span class="o">-&gt;</span><span class="n">u1</span><span class="p">.</span><span class="n">AddressOfData</span><span class="p">));</span>
+
+                <span class="c1">//TODO Compile one that uses ordinals</span>
+                <span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\n</span><span class="s">Havent implemented this yet"</span><span class="p">);</span>
+            <span class="p">}</span>
+            <span class="k">else</span> <span class="p">{</span>
+                <span class="c1">// By name and not ordinal</span>
+                <span class="n">IMAGE_IMPORT_BY_NAME</span><span class="o">*</span> <span class="n">pImageImportByName</span> <span class="o">=</span> <span class="p">(</span><span class="n">IMAGE_IMPORT_BY_NAME</span><span class="o">*</span><span class="p">)(</span><span class="n">pIat</span><span class="o">-&gt;</span><span class="n">u1</span><span class="p">.</span><span class="n">AddressOfData</span> <span class="o">+</span> <span class="n">shellcode_load_address</span><span class="p">);</span>
+                <span class="n">BYTE</span><span class="o">*</span> <span class="n">apiName</span> <span class="o">=</span> <span class="n">pImageImportByName</span><span class="o">-&gt;</span><span class="n">Name</span><span class="p">;</span>
+                <span class="n">WORD</span> <span class="n">hint</span> <span class="o">=</span> <span class="n">pImageImportByName</span><span class="o">-&gt;</span><span class="n">Hint</span><span class="p">;</span>
+                <span class="n">FARPROC</span> <span class="n">function_ptr</span> <span class="o">=</span> <span class="n">GetProcAddress</span><span class="p">(</span><span class="n">dllModule</span><span class="p">,(</span><span class="n">LPCSTR</span><span class="p">)</span><span class="n">apiName</span><span class="p">);</span>
+                <span class="c1">// we take advantage of the fact that ordinal + function address location from IAT and function name index are the same each time.</span>
+                <span class="n">pIat</span><span class="o">-&gt;</span><span class="n">u1</span><span class="p">.</span><span class="n">Function</span> <span class="o">=</span> <span class="n">function_ptr</span><span class="p">;</span>
+                <span class="n">printf</span><span class="p">(</span><span class="s">"</span><span class="se">\n\t</span><span class="s">Hint : 0x%X</span><span class="se">\t\t</span><span class="s"> - %s  "</span> <span class="p">,</span><span class="n">hint</span><span class="p">,</span><span class="n">apiName</span><span class="p">);</span>
+                <span class="kt">int</span> <span class="n">kk</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+            <span class="p">}</span>
+            <span class="n">pIat</span><span class="o">++</span><span class="p">;</span>
+            <span class="n">pInt</span><span class="o">++</span><span class="p">;</span>
+        <span class="p">}</span>
+
+        <span class="c1">// Next Descriptor </span>
+        <span class="n">pImportDescriptor</span><span class="o">++</span><span class="p">;</span>
+        <span class="c1">// go to the next descriptor</span>
+    <span class="p">}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>It should be noted however, that for real world malware, malware authors tend to indirectly resolve <code class="language-plaintext highlighter-rouge">GetProcAddress</code> since this is usually one of the first few places malware analysts would look at. Furthermore, they would try to remove as many dependencies as possible to make the shellcode work more independently. Nonetheless, this study is more of a proof of concept and thus, no attempt has been made to mimic that behaviour.</p>
+
+<h3 id="336-execute-shellcode">3.3.6. Execute Shellcode</h3>
+
+<p>With the relocations and function addresses fixed and resolved, the entry point can be calculated before jumping to it. Entry Point address can be calculated by adding the loaded shellcode’s base address + Virtual Address of entry point stored in cusom loader information. The permission of the page is then altered to <code class="language-plaintext highlighter-rouge">PAGE_EXECUTE_READWRITE</code>. After running the shellcode, the permission is then set back to its original value.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// Jump to entry point</span>
+    <span class="n">LPVOID</span> <span class="n">address</span> <span class="o">=</span> <span class="p">((</span><span class="n">BYTE</span><span class="o">*</span><span class="p">)</span><span class="n">shellcode_load_address</span> <span class="o">+</span> <span class="n">customLoaderInfo</span><span class="p">.</span><span class="n">VA_EntryPoint</span><span class="p">);</span>
+    <span class="kt">void</span> <span class="p">(</span><span class="o">*</span><span class="n">load_entry_point</span><span class="p">)()</span> <span class="o">=</span> <span class="n">address</span><span class="p">;</span>
+    <span class="n">VirtualProtect</span><span class="p">(</span><span class="n">shellcode_load_address</span><span class="p">,</span> <span class="n">customLoaderInfo</span><span class="p">.</span><span class="n">ImageSize</span><span class="p">,</span> <span class="n">PAGE_EXECUTE_READWRITE</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">oldProtect</span><span class="p">);</span>
+    <span class="n">load_entry_point</span><span class="p">();</span>
+    <span class="n">VirtualProtect</span><span class="p">(</span><span class="n">shellcode_load_address</span><span class="p">,</span> <span class="n">customLoaderInfo</span><span class="p">.</span><span class="n">ImageSize</span><span class="p">,</span> <span class="n">oldProtect</span><span class="p">,</span> <span class="o">&amp;</span><span class="n">oldProtect</span><span class="p">);</span>
+</code></pre></div></div>
+
+<h2 id="results">Results</h2>
+
+<p>A test was done on a simple program and it worked!</p>
+
+<p><img src="/images/reloc_iat_fixing/ede7bb4e1f25d3de7621bbfd563abb3a.png" alt="ede7bb4e1f25d3de7621bbfd563abb3a.png" /></p>
+
+<h2 id="discussions">Discussions</h2>
+
+<p>Memory forensics techniques can be employed to detect the use of reflective loading, even if the PE file does not exist on disk. Tools such as Volatility can be used to analyze the memory of the compromised system.Volatility’s <code class="language-plaintext highlighter-rouge">malfind</code> module or plugin can detect <strong>common</strong> patterns of reflective loader [1]. The plugin is capable of scanning for regions with <code class="language-plaintext highlighter-rouge">PAGE_EXECUTE_READWRITE</code> memory protection and check for the magic bytes MZ at the beginning of those regions (This is with the assumption that the header content are intact. In this study, since the headers are stripped, it is trickier to detect with <code class="language-plaintext highlighter-rouge">malfind</code> alone ).</p>
+
+<h2 id="references">References</h2>
+<ol>
+  <li>https://www.ired.team/offensive-security/code-injection-process-injection/reflective-dll-injection</li>
+  <li>https://learn.microsoft.com/en-us/windows/win32/debug/pe-format</li>
+  <li>(Benjamin Sølberg n.d.), ReflectivePELoader, <a href="https://github.com/BenjaminSoelberg/ReflectivePELoader">https://github.com/BenjaminSoelberg/ReflectivePELoader</a></li>
+  <li>MITRE. (2022, April 21). Reflective Code Loading. MITRE ATT&amp;CK. https://attack.mitre.org/techniques/T1620/</li>
+</ol>
+
+<hr />
+
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://localhost:4000/2023/09/05/Relocation_Table_and_IAT_Fixing/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Relocation%20Table%20and%20Import%20Address%20Table%20(IAT)%20in%20Reflectively%20Loaded%20PE%20File&url=http://localhost:4000/2023/09/05/Relocation_Table_and_IAT_Fixing/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://localhost:4000/2023/09/05/Relocation_Table_and_IAT_Fixing/&amp;media=http://localhost:4000/images/reloc_iat_fixing/backgroundimage.png&amp;description=Relocation%20Table%20and%20Import%20Address%20Table%20(IAT)%20in%20Reflectively%20Loaded%20PE%20File" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2023/06/13/Quick_Study_of_BYOVD/">
+        <img class="post__nav-image lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h4>
+        </div>
+      </a>
+      
+      
+      <a class="next" href="/2024/05/20/A_quick_peek_at_Black_Wood_DLL_Loader/">
+        <img class="post__nav-image lazy" data-src="/images/BlackWoodDllLoader/background.png" alt="A Quick Look at BlackWood DLL Loader">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
+          <h4 class="post__nav__title">A Quick Look at BlackWood DLL Loader</h4>
+        </div>
+      </a>
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2024/05/20/A_quick_peek_at_Black_Wood_DLL_Loader/">
+                  <img class="lazy" data-src="/images/BlackWoodDllLoader/background.png" alt="A Quick Look at BlackWood DLL Loader">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2024-05-20T12:56:00+08:00">May 20, 2024</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">A Quick Look at BlackWood DLL Loader</h2>
+
+                  <p class="article__excerpt">Exploring VXUnderground and chanced upon a DLL Loader from 2024, and so why not take a look at it?</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/MalwareAnalysis" class="article__tag">MalwareAnalysis</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/06/13/Quick_Study_of_BYOVD/">
+                  <img class="lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        12 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-06-13T09:27:00+08:00">Jun 13, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h2>
+
+                  <p class="article__excerpt">Quick Study of BYOVD including Root Cause Analysis and how it can be abused by attackers to disable or evade security solutions.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/">
+                  <img class="lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="A quick Look at a Dropper and Downloader">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        6 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-11T17:54:00+08:00">Mar 11, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">A quick Look at a Dropper and Downloader</h2>
+
+                  <p class="article__excerpt">Just a random quick analysis of a recent sample that was uploaded on VirusTotal. The first ever in this blog at least ...</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/MalwareAnalysis" class="article__tag">MalwareAnalysis</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -272,7 +875,7 @@
           <span class="article__minutes">
             
             
-              17 min read
+              9 min read
             
           </span>
           <time class="article__date"

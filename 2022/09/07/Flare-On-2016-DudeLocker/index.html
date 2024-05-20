@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Page not found</title>
-  <meta name='description' content='Malware Owl Blog on the Journey'>
+  <title>DudeLocker (Flare-on 2016) - RVA and Import Descriptors</title>
+  <meta name='description' content='Learning how PE files get imported function names from headers. Cleared up concepts on Relative Virtual Address and learnt some Important data structures per...'>
 
-  <link rel="canonical" href="http://localhost:4000/404.html">
+  <link rel="canonical" href="http://localhost:4000/2022/09/07/Flare-On-2016-DudeLocker/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -33,7 +33,7 @@
   
 
 <!-- begin header -->
-<header class="header header--top">
+<header class="header ">
   <div class="container">
     <div class="row">
       <div class="header__inner col col-12">
@@ -213,40 +213,570 @@
 
   <!-- begin content -->
   <main class="content" aria-label="Content">
-    <!-- begin hero -->
-
-<section class="hero">
-  <div class="hero__inner">
-    <div class="hero__image">
-      <img class="lazy" data-src="/images/140.jpg" alt="Page not found">
-    </div>
-    <div class="hero__content">
-      <h1 class="hero__title">Page not found</h1>
-    </div>
-  </div>
-</section>
-
-<!-- begin hero -->
-
-<!-- begin page -->
-<div class="container">
-  <article class="page animate">
-    <div class="page__content">
-      <div class="container">
-  <div class="row">
-    <div class="col col-12" style="text-align: center">
-      <h2 style="font-size: 48px">404</h2>
-      <p>The requested page could not be found.</p>
-      <p><a href="/" class="button button--middle" style="text-decoration: none; border: none">Back to the blog</a></p>
-      <hr>
+    <div class="post-head">
+  <div class="container">
+    <div class="row">
+      
+      <div class="col col-6 col-t-12">
+        <div class="image-box">
+          <img class="post-image lazy" data-src="/images/DudeLocker_background.png" alt="DudeLocker (Flare-on 2016) - RVA and Import Descriptors">
+        </div>
+      </div>
+      
+  
+      <div class="col col-6 col-t-12">
+        <div class="post-head__box">
+        
+          <div class="post__meta">
+            <span class="post__minutes">
+              
+              
+                8 min read
+              
+              <time class="post__date"
+                datetime="2022-09-07T04:23:00+08:00">Sep 7, 2022</time>
+            </span>
+          </div>
+        
+          <h2 class="post__title">DudeLocker (Flare-on 2016) - RVA and Import Descriptors</h2>
+        
+          <div class="post__bottom">
+        
+            <div class="post__author">
+              <a href="/about/" aria-label="MalwareOwl"><img class="post__author-image"
+                  src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+            </div>
+        
+            <div class="post__bottom-meta">
+              <a href="/about/" class="post__author-link">MalwareOwl</a>
+              
+              <span>in</span>
+              <span class="post-tags">
+                
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
+                
+              </span>
+              
+            </div>
+          </div>
+        
+        </div>
+      </div>
     </div>
   </div>
 </div>
 
+<!-- begin post -->
+<div class="container">
+  <article class="post animate">
+
+    <div class="post__content">
+      <h1 id="dudelocker">DudeLocker</h1>
+
+<h2 id="description">Description</h2>
+
+<p>Recently, I was tasked to try out challenge 2 <code class="language-plaintext highlighter-rouge">DudeLocker</code> in Flare-on from the year 2016. Since there are already many writeups, this post aims to help the reader understand a concept that was really hazy to me. The concept that I have questions about is how PE files deal with import functions and how they resolve them.</p>
+
+<h2 id="tldr-dudelocker">TL;DR (DudeLocker)</h2>
+<p>What DudeLocker does is that it will attempt to generate the IV and Key and use that for AES-CBC Mode Cipher to encrypt every document in the Briefcase folder stored in the Desktop. However, what we really want is decrypt the file instead to get back the original jpg file content. One of the  ways to do so is to mess with the Import descriptors and calling CryptDecrypt rather than CryptEncrypt. This will still work because AES-CBC uses symmetric encryption.</p>
+
+<p>If you have not tried this yet, you can download the challenge files from <a href="https://github.com/fareedfauzi/Flare-On-Challenges/blob/master/Challenges/2016/Flare-on%203/2/">github</a>. Give it a try and you can try to follow along as well!</p>
+
+<h2 id="finding-imports-from-pe-file-headers">Finding Imports from PE File Headers</h2>
+
+<p>During this time, I wil be using <code class="language-plaintext highlighter-rouge">pe-bear</code> and <code class="language-plaintext highlighter-rouge">pestudio</code> to inspect the PE File structure of the ransomware. Within the NT Headers, there is an <code class="language-plaintext highlighter-rouge">Optional Header</code> that points to the Import Directory at raw file offset 0x160 which contains the address 0x21A8.</p>
+
+<p><img src="/images/import_directory_RVA.png" alt="import_directory_RVA.png" />
+<em>Address of Import Directory</em></p>
+
+<p>While this address looks pretty much normal, however, when we look at the data in the last section, realize that there is no such address as it ends at 0x19FF. WHAT?!</p>
+
+<p><img src="/images/end_of_data.png" alt="end_of_data.png" /></p>
+
+<p>To understand this, we have to understand what Relative Virtual Address is! According to <a href="https://en.wikipedia.org/wiki/COFF">Wikipedia</a> :</p>
+
+<blockquote>
+  <p>Relative virtual addresses (RVAs) are not to be confused with standard virtual addresses. A relative virtual address is the virtual address of an object from the file once it is loaded into memory, minus the base address of the file image.</p>
+</blockquote>
+
+<p>That said, to find out the directory information from the PE File, we need to calculate the File Offset Address (FOA) so that we can parse the data.</p>
+
+<p>Before going deeper, let us first take a look and understand the Section Headers that can be seen in PE-bear.</p>
+
+<p><img src="/images/section_headers.png" alt="section_headers.png" />
+<em>Section Headers</em></p>
+
+<h2 id="calculating-file-offset-address-from-rva">Calculating File Offset Address from RVA</h2>
+
+<p>We are interested in the <code class="language-plaintext highlighter-rouge">.rdata</code> section since the the RVA of value 0x21A8 is within range. We see that there are quite a number of fields in this Section Headers.</p>
+
+<p>This actually corresponds with the <a href="https://docs.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-image_section_header"><code class="language-plaintext highlighter-rouge">_IMAGE_SECTION_HEADER</code></a> struct.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">typedef</span> <span class="k">struct</span> <span class="n">_IMAGE_SECTION_HEADER</span> <span class="p">{</span>
+  <span class="n">BYTE</span>  <span class="n">Name</span><span class="p">[</span><span class="n">IMAGE_SIZEOF_SHORT_NAME</span><span class="p">];</span>
+  <span class="k">union</span> <span class="p">{</span>
+    <span class="n">DWORD</span> <span class="n">PhysicalAddress</span><span class="p">;</span>
+    <span class="n">DWORD</span> <span class="n">VirtualSize</span><span class="p">;</span>
+  <span class="p">}</span> <span class="n">Misc</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">VirtualAddress</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">SizeOfRawData</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">PointerToRawData</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">PointerToRelocations</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">PointerToLinenumbers</span><span class="p">;</span>
+  <span class="n">WORD</span>  <span class="n">NumberOfRelocations</span><span class="p">;</span>
+  <span class="n">WORD</span>  <span class="n">NumberOfLinenumbers</span><span class="p">;</span>
+  <span class="n">DWORD</span> <span class="n">Characteristics</span><span class="p">;</span>
+<span class="p">}</span> <span class="n">IMAGE_SECTION_HEADER</span><span class="p">,</span> <span class="o">*</span><span class="n">PIMAGE_SECTION_HEADER</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>The two main fields that we are interested in are :</p>
+<ol>
+  <li>Virtual Address
+    <ul>
+      <li>the address of the <strong>FIRST</strong> byte of the section when loaded into memory, relative to the image base!</li>
+      <li>In this case, when DudeLocker is loaded in memory, the first byte of the .rdata section is 0x2000 excluding the image base.</li>
+    </ul>
+  </li>
+  <li>PointerToRawData
+    <ul>
+      <li>A file pointer to the first page within the COFF file, referring to the PE file.</li>
+      <li>In this case,  Raw Data of .rdata section is at offset 0x1000 of the PE file.</li>
+    </ul>
+  </li>
+</ol>
+
+<p>Now, the value 0x21A8 represents the Relative Virtual Address (RVA) of the Import Directory which refers to the address when loaded in memory at that specific location relative to the image base.</p>
+
+<p>Therefore, to figure out the File Offset Address with relations to the Relative Virtual Address (RVA), we can do the following calculation.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+
+FileOffsetAddress =  0x1000 + ( 0x21A8 - 0x2000 )
+
+FileOffsetAddress = 0x11a8
+</code></pre></div></div>
+
+<p><code class="language-plaintext highlighter-rouge">(RVA - VirtualAddressOfSection)</code> acts like the delta between the address and the first byte which will then be added to Pointer to Raw Data where the first byte of that section is located in the PE File. Thus, getting the File offset Address.</p>
+
+<p>Checking the first entry in the imports tab in PE-bear should confirm our calculations!</p>
+
+<p><img src="/images/import_calculation.png" alt="import_calculation.png" />
+<em>At file offset 0x11a8 lies the first import entry</em></p>
+
+<h2 id="studying-important-structs-related-to-imports">Studying Important Structs related to Imports</h2>
+
+<p>Referencing this <a href="http://www.cse.tkk.fi/fi/opinnot/T-110.6220/2010_Spring_Malware_Analysis_and_Antivirus_Tchnologies/luennot-files/Erdelyi-Reverse_engineering_2.pdf">PDF</a>, the Import Descriptors contain the fields as seen in the previous image. <a href="https://docs.microsoft.com/en-us/archive/msdn-magazine/2002/march/inside-windows-an-in-depth-look-into-the-win32-portable-executable-file-format-part-2">This old MSDN Post</a> supports that as well. It turns out there are different ways to resolve the imported function address. For this post, I will only focus on resolution when bound value is set to FALSE.</p>
+
+<p>The following image is taken from the aforementioned PDF</p>
+
+<p><img src="/images/important_data_structures.png" alt="important_data_structures.png" /></p>
+
+<p>Using this data structure, we should be able to parse and get back the same result.</p>
+
+<p><img src="/images/image_import_descriptor.png" alt="image_import_descriptor.png" />
+<em>Mapping from memory to structure</em></p>
+
+<p>Now that we see this mapping, there is still something that did not make sense. To get the name, we can look at the Image thunk data which is a RVA to the original unbounded IAT.</p>
+
+<p>Notice how the value of NameRVA 0x242c gets resolved to the symbol name <code class="language-plaintext highlighter-rouge">KERNEL32.dll</code>? We can confirm that with the same calculations as before to find out the File Offset Address.</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>FileOffsetAddress =  PointerToRawData + (RVA - VirtualAddressOfSection)
+
+FileOffsetAddress =  0x1000 + ( 0x242c - 0x2000 )
+
+FileOffsetAddress = 0x142c
+</code></pre></div></div>
+
+<p><img src="/images/rva_name.png" alt="rva_name.png" /></p>
+
+<p>Finally, to list out the import functions, we can trace through the Original first Thunk. Since we have the value fo 0x223c, we have the FileOffsetAddress of 0x123c which contains the RVA of 0x2360 which points to IMAGE_IMPORT_BY_NAME structure with the hint and byte pointer field at 0x1360!</p>
+
+<p><img src="/images/import_name.png" alt="import_name.png" /></p>
+
+<p>The hint in this data structure is actually a “hint” to the loader as to what ordinal of the imported API might be. Also, the reason why we can tell that the RVA of 0x2360 points to the IMAGE_THUNK_ DATA value is because the high bit of the IMAGE_THUNK_DATA value is not set. If it is set, the bottom 31 bits (or 63 bits for a 64-bit executable) is treated as an ordinal value.</p>
+
+<p>Another important detail is that this “hint” is there to help improve performance when attempting to resolve a function, however, if it is unable to find the function, it will still search the normal way as before. This means that if we were to change the name of the function, the hint may fail and still continue to search up the DLL export table.</p>
+
+<h1 id="changing-cryptencrypt-to-cryptdecrypt">Changing CryptEncrypt to CryptDecrypt</h1>
+
+<p>If you have done the challenge, you would have been familiar with the following two functions.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">//  7 parameters</span>
+<span class="n">BOOL</span> <span class="nf">CryptEncrypt</span><span class="p">(</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTKEY</span>  <span class="n">hKey</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTHASH</span> <span class="n">hHash</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">BOOL</span>       <span class="n">Final</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwFlags</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">BYTE</span>       <span class="o">*</span><span class="n">pbData</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">DWORD</span>      <span class="o">*</span><span class="n">pdwDataLen</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwBufLen</span>
+<span class="p">);</span>
+
+<span class="c1">// 6 parameters</span>
+<span class="n">BOOL</span> <span class="nf">CryptDecrypt</span><span class="p">(</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTKEY</span>  <span class="n">hKey</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">HCRYPTHASH</span> <span class="n">hHash</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">BOOL</span>       <span class="n">Final</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">]</span>      <span class="n">DWORD</span>      <span class="n">dwFlags</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">BYTE</span>       <span class="o">*</span><span class="n">pbData</span><span class="p">,</span>
+  <span class="p">[</span><span class="n">in</span><span class="p">,</span> <span class="n">out</span><span class="p">]</span> <span class="n">DWORD</span>      <span class="o">*</span><span class="n">pdwDataLen</span>
+<span class="p">);</span>
+</code></pre></div></div>
+
+<p>For this, since we are now familiar with how the program resolves the name, we can attempt to find and patch the binary so that.</p>
+
+<p>First thing I did was to change the name using CFF Explorer. I changed the name of CryptEncrypt to CryptDecrypt.</p>
+
+<p><img src="/images/alter_to_decrypt.png" alt="alter_to_decrypt.png" /></p>
+
+<p>We can now load the binary into IDA and see the changes.</p>
+
+<p><img src="/images/now_decrypt.png" alt="now_decrypt.png" /></p>
+
+<p>Since that CryptDecrypt has the exact same parameters except for the absence of the parameter <code class="language-plaintext highlighter-rouge">dwBufLen</code>, we can replace the <code class="language-plaintext highlighter-rouge">push eax</code> instruction with NOPs at address 0040165A.</p>
+
+<p>Let’s patch it in x32dbg and see the result. Remember to change the volume serial number with VolumeId64.exe from sysinternal tools suite. Also, put the BusinessPapers.doc file into the Briefcase as well for decryption.</p>
+
+<p><img src="/images/nop.png" alt="nop.png" /></p>
+
+<h2 id="flagging">Flagging</h2>
+
+<p>After running the decryption, we can now double check the BusinessPapers.doc in HxD. We see that it has the JFIF header with Exif information which suggest strongly that this is a JPG file.</p>
+
+<p><img src="/images/HxD_output_jfif.png" alt="HxD_output_jfif.png" /></p>
+
+<p>Changing the extension to Jpg and we should see the following image containing the flag.</p>
+
+<p><img src="/images/flag.png" alt="flag.png" /></p>
+
+<hr />
+
+
     </div>
+
+    <div class="post__share">
+      <div class="share__list">
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://localhost:4000/2022/09/07/Flare-On-2016-DudeLocker/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=DudeLocker%20(Flare-on%202016)%20-%20RVA%20and%20Import%20Descriptors&url=http://localhost:4000/2022/09/07/Flare-On-2016-DudeLocker/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://localhost:4000/2022/09/07/Flare-On-2016-DudeLocker/&amp;media=http://localhost:4000/images/DudeLocker_background.png&amp;description=DudeLocker%20(Flare-on%202016)%20-%20RVA%20and%20Import%20Descriptors" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+      </div>
+    </div>
+
+    <div class="post__navigation">
+      
+      <a class="prev" href="/2022/09/06/Welcome-to-my-blog-everyone/">
+        <img class="post__nav-image lazy" data-src="/images/welcomepost_background.png" alt="Welcome to my Blog everyone !">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
+          <h4 class="post__nav__title">Welcome to my Blog everyone !</h4>
+        </div>
+      </a>
+      
+      
+      <a class="next" href="/2022/09/08/Understanding_64_bits_Windows_10_Shellcode/">
+        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart1/Windows10Shellcodepart1.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1">
+        <div class="post__nav-box">
+          <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
+          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h4>
+        </div>
+      </a>
+      
+    </div>
+
   </article>
 </div>
-<!-- end page -->
+<!-- end post -->
+
+
+
+
+
+
+
+<div class="container">
+  <div class="related-posts is-related">
+    <div class="row">
+      <div class="col col-12">
+        <div class="container__inner">
+          <h3 class="related-title">You may also like</h3>
+          <div class="row grid">
+
+          
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/06/13/Quick_Study_of_BYOVD/">
+                  <img class="lazy" data-src="/images/quickstudyBYOVD/backgroundimage.png" alt="Quick Study of Bring Your Own Vulnerable Driver (BYOVD)">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-06-13T09:27:00+08:00">Jun 13, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Quick Study of Bring Your Own Vulnerable Driver (BYOVD)</h2>
+
+                  <p class="article__excerpt">Quick Study of BYOVD including Root Cause Analysis and how it can be abused by attackers to disable or evade security solutions.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/26/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        22 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-26T02:45:00+08:00">Mar 26, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+                  <img class="lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        9 min read
+                      
+                      <time class="article__date"
+                        datetime="2022-11-12T18:10:00+08:00">Nov 12, 2022</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Flare-on 9 - Challenge 9 and 11</h2>
+
+                  <p class="article__excerpt">This year of flare-on is the third try and the first that I have ever completed so far! Definitely did have my share of pain and joy during this time of challenges. For this post, I will share my writeup on challenge 9 and 11.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+                  
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+ <!-- begin comments -->
+<div class="container">
+  <div class="row">
+    <div class="col col-12">
+      <div class="disqus-inner">
+        <div id="disqus_thread" class="post-comments">
+          <div id="disqus_empty"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function load_disqus() {
+    var disqus_shortname = 'anvodstudio-demo',
+      is_disqus_empty = document.getElementById('disqus_empty'),
+      disqus_target = document.getElementById('disqus_thread'),
+      disqus_embed = document.createElement('script'),
+      disqus_hook = (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]);
+
+    if (disqus_target && is_disqus_empty) {
+      disqus_embed.type = 'text/javascript';
+      disqus_embed.async = true;
+      disqus_embed.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+      disqus_hook.appendChild(disqus_embed);
+      is_disqus_empty.remove();
+    }
+  }
+
+  window.addEventListener('scroll', function (e) {
+    var currentScroll = document.scrollingElement.scrollTop;
+    var disqus_target = document.getElementById('disqus_thread');
+
+    if (disqus_target && (currentScroll > disqus_target.getBoundingClientRect().top - 150)) {
+      load_disqus('disqus_shortname');
+    }
+  }, false);
+
+</script>
+<noscript>Please enable JavaScript to view the
+  <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a>
+</noscript>
+<!-- end comments --> 
+
   </main> 
   <!-- end content -->
   
@@ -272,7 +802,7 @@
           <span class="article__minutes">
             
             
-              17 min read
+              9 min read
             
           </span>
           <time class="article__date"
@@ -299,7 +829,7 @@
           <span class="article__minutes">
             
             
-              13 min read
+              10 min read
             
           </span>
           <time class="article__date"

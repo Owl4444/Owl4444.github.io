@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>A quick Look at a Dropper and Downloader</title>
-  <meta name='description' content='Just a random quick analysis of a recent sample that was uploaded on VirusTotal. The first ever in this blog at least ...'>
+  <title>Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</title>
+  <meta name='description' content='Now that we have an understanding about how shellcode works, let's write one ourselves now @.@'>
 
-  <link rel="canonical" href="http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/">
+  <link rel="canonical" href="http://0.0.0.0:4000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -218,7 +218,7 @@
       
       <div class="col col-6 col-t-12">
         <div class="image-box">
-          <img class="post-image lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="A quick Look at a Dropper and Downloader">
+          <img class="post-image lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
         </div>
       </div>
       
@@ -230,14 +230,14 @@
             <span class="post__minutes">
               
               
-                6 min read
+                11 min read
               
               <time class="post__date"
-                datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
+                datetime="2022-09-09T22:31:00+00:00">Sep 9, 2022</time>
             </span>
           </div>
         
-          <h2 class="post__title">A quick Look at a Dropper and Downloader</h2>
+          <h2 class="post__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h2>
         
           <div class="post__bottom">
         
@@ -252,9 +252,7 @@
               <span>in</span>
               <span class="post-tags">
                 
-                <a href="/tag/QuickPeek" class="post__tag">QuickPeek</a>
-                
-                <a href="/tag/MalwareAnalysis" class="post__tag">MalwareAnalysis</a>
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
                 
               </span>
               
@@ -272,244 +270,298 @@
   <article class="post animate">
 
     <div class="post__content">
-      <h1 id="quick-malware-analysis">Quick Malware Analysis</h1>
+      <h1 id="understanding-64-bits-windows-10-shellcode-calcexe---part-2">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h1>
 
-<h2 id="sample">Sample</h2>
+<h2 id="description">Description</h2>
 
-<p>As of 11 March 2023, I have tried the following search in VirusTotal
-<img src="/images/flash_analysis_1/bb183d4fe39440a8a01cfff28f8520dc.png" alt="bb183d4fe39440a8a01cfff28f8520dc.png" /></p>
+<p>Welcome back to the second part of understanding 64 bits Windows 10 shellcode. In Part 1, we have taken a look at we can get function address from any loaded modules. In this case, we were targetting the function <code class="language-plaintext highlighter-rouge">WinExec</code> to execute commands, and we wanted to spawn calc.exe for this shellcode.</p>
 
-<h3 id="hash">Hash:</h3>
+<p>In this post, we will write our own shellcode following closely to what was described in the previous part. I am using the Miscrosoft Visual Studio’s Macro Assembler. Let’s dive straight in.</p>
 
-<div class="table-container">
-  <table> 
-    <tr><th>Name : </th><th>dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe</th></tr>
-    <tr><th> Hash : </th><th>7703278ce4c812de42c720928689b5cd5976270057dcfb512c9905d1ae7307d3</th></tr>
-  </table>
-</div>
+<h1 id="setting-up-the-environment">Setting up the Environment</h1>
 
-<p><br /></p>
+<p>First, we will create a new empty project. I am using Microsoft Visual Studio 2019, Community version.</p>
 
-<p><img src="/images/flash_analysis_1/7db4dd9bfc334a69a35c545c79f6e607.png" alt="7db4dd9bfc334a69a35c545c79f6e607.png" /></p>
+<p><img src="/images/windows10shellcodePart2/CreateNewEmptyProject.png" alt="CreateNewEmptyProject.png" /></p>
 
-<h2 id="static-analysis">Static Analysis</h2>
-
-<h3 id="floss">FLOSS</h3>
-<p>Firstly, from Flare’s Floss program it shows some interesting strings that might give an insight to what this malware might be doing.</p>
-
-<p>It seems to indicate some things:</p>
+<p>After that, create two files:</p>
 <ol>
-  <li>Persistence via the Run key</li>
-  <li>Commands are run within this binary via <code class="language-plaintext highlighter-rouge">ShellExecuteExA</code> from <code class="language-plaintext highlighter-rouge">Shell32.dll</code></li>
-  <li>Internet Requests are made since headers are found
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Accept: */*
-0x06065 Content-Type: application/x-www-form-urlencoded
-0x06096 Accept-Language: zh-cn
-0x060ae Connection: Keep-Alive
-0x060c8 Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; CIBA; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022)
-</code></pre></div>    </div>
-  </li>
-  <li>Language Accepted : Chinese</li>
-  <li>MAC address may be collected due to <code class="language-plaintext highlighter-rouge">%s?mac=%02X-%02X-%02X-%02X-%02X-%02X</code></li>
-  <li><code class="language-plaintext highlighter-rouge">pomdfghrt</code> which is actually the mutex name.</li>
-  <li><code class="language-plaintext highlighter-rouge">a.exe</code> string may be obfuscated for some reason since this value is found in the stack string after analysis by FLOSS.</li>
-  <li>It looks like some usersname were targetted including :
-    <ol>
-      <li>Steve</li>
-      <li>George</li>
-      <li>r.vult</li>
-      <li>Joe Cage</li>
-      <li>Azure</li>
-      <li>Linky</li>
-      <li>Maxine</li>
-    </ol>
-  </li>
-  <li>It seems like it contains hashes for other malware with the same name <code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> which sounds like another variant
-    <ol>
-      <li><code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> - https://www.virustotal.com/gui/file/55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227/details</li>
-      <li><code class="language-plaintext highlighter-rouge">9b5e3f2ea0756b11df0cef72d7d9d2ac.virus</code> - https://www.virustotal.com/gui/file/9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d/details
-        <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
-0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
-0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
-0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
-0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
-0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
-0x13c98 C:\Users\george\Desktop\microsofthelp.exe
-0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
-0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x140a8 C:\Users\george\Desktop\microsofthelp.exe
-0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
-0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
-0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
-0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
-0x145bc C:\WINDOWS\STUB.exe
-0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
-0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
-0x148c8 C:\WINDOWS\STUB.exe
-0x149cc C:\Users\george\Desktop\software.exe
-0x14ad0 C:\WINDOWS\STUB.exe
-0x14bd4 C:\Users\george\Desktop\program.exe
-0x14cd8 C:\WINDOWS\STUB.exe
-0x14ddc C:\Users\george\Desktop\software.exe
-0x14ee0 C:\WINDOWS\STUB.exe
-0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
-0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
-0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
-0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
-0x153f4 C:\WINDOWS\STUB.exe
-0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
-0x155fc C:\WINDOWS\STUB.exe
-0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
-0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
-0x15908 C:\Users\azure\Downloads\microsofthelp.exe
-0x15a0c C:\WINDOWS\STUB.exe
-0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
-0x15c14 C:\WINDOWS\STUB.exe
-0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
-0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
-0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
-</code></pre></div>        </div>
-      </li>
-    </ol>
-  </li>
+  <li>main.c</li>
+  <li>shellcoding.asm</li>
 </ol>
 
-<p>Some other interesting strings that may be used for hunting includes</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Software\motherFucker
+<p>Before writing any code, we will first configure Visual Studio so that we can work with the asm file.
+Right click on the project root folder (Not the solution) and select <code class="language-plaintext highlighter-rouge">Build Dependencies</code>, then click on <code class="language-plaintext highlighter-rouge">Build Customizations...</code>. The Visual C++Build Cusomizations File Window should open. We will need to click on <code class="language-plaintext highlighter-rouge">masm</code> checkbox to enable building with masm.</p>
 
-GetStringTypeALCMapStringWWaitForSingleObjectCreateThreadHeapFreeDeleteFileAExitProcesslstrcmpiAlstrcatAGetWindowsDirectoryAHeapAllocGetProcessHeapSleepGetModuleFileNameACloseHandleGetLastErrorCreateMutexAGetProcAddressLoadLibraryAHeapReAllocGetTickCountFindCloseFindFirstFileATerminateProcessCreateProcessACreateFileAReadFileWriteFileFlushFileBuffersGetFileSizeLCMapStringAGetStringTypeWMultiByteToWideCharGetOEMCPGetACPGetCPInfoRtlUnwindSetUnhandledExceptionFilterIsBadReadPtrIsBadWritePtrIsBadCodePtrGetCurrentProcessGetStdHandleWideCharToMultiByteRegSetValueExARegQueryValueExARegOpenKeyExARegCreateKeyARegOpenKeyARegCloseKeyGetAdaptersInfoInternetOpenAInternetSetOptionExAInternetOpenUrlAInternetCloseHandleInternetReadFilewsprintfA
+<p><img src="/images/windows10shellcodePart2/build_customizations.png" alt="build_customizations.png" /></p>
 
-B&amp;C:\Documents and Settings\Administrator\My Documents\My Music\QvodSetup5.exe
+<p>Next, right click on our shellcode.asm file and click on properties. We will wnat to set the <code class="language-plaintext highlighter-rouge">Item Type</code> to Microsoft Macro Assembler.</p>
 
-C:\_dWlLXez.exe
+<p><img src="/images/windows10shellcodePart2/asm_config.png" alt="asm_config.png" /></p>
 
-C:\runme.exe
+<p>Finally, change the compilation configuration from x86 to x64 since we are aiming to deal with x64 shellcode.</p>
 
-C:\vshsn.exe
+<p>At this point, we should be able to write and compile and a small test project.</p>
 
-0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
-0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
-0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
-0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
-0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
-0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
-0x13c98 C:\Users\george\Desktop\microsofthelp.exe
-0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
-0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x140a8 C:\Users\george\Desktop\microsofthelp.exe
-0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
-0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
-0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
-0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
-0x145bc C:\WINDOWS\STUB.exe
-0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
-0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
-0x148c8 C:\WINDOWS\STUB.exe
-0x149cc C:\Users\george\Desktop\software.exe
-0x14ad0 C:\WINDOWS\STUB.exe
-0x14bd4 C:\Users\george\Desktop\program.exe
-0x14cd8 C:\WINDOWS\STUB.exe
-0x14ddc C:\Users\george\Desktop\software.exe
-0x14ee0 C:\WINDOWS\STUB.exe
-0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
-0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
-0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
-0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
-0x153f4 C:\WINDOWS\STUB.exe
-0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
-0x155fc C:\WINDOWS\STUB.exe
-0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
-0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
-0x15908 C:\Users\azure\Downloads\microsofthelp.exe
-0x15a0c C:\WINDOWS\STUB.exe
-0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
-0x15c14 C:\WINDOWS\STUB.exe
-0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
-0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
-0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+<h2 id="testing-environment">Testing Environment</h2>
 
-</code></pre></div></div>
+<p>main.c :</p>
 
-<h3 id="capa">CAPA</h3>
-<p>With Flare’s CAPA, we can quickly identify that there is some unusual section name with the following format <code class="language-plaintext highlighter-rouge">nspX</code> where <code class="language-plaintext highlighter-rouge">X</code> is a number.
-<img src="/images/flash_analysis_1/1b4aedd436fa4cbabb0536ba115d8e0e.png" alt="1b4aedd436fa4cbabb0536ba115d8e0e.png" /></p>
+<pre><code class="language-asm">#include&lt;stdio.h&gt;
 
-<p>This is the first time I have ever heard and came across NSP Packer.</p>
+extern int shellcoding(); // return the value 0x1337
 
-<h3 id="pe-bear">PE Bear</h3>
-<p>Off all the nsp section names, only nsp2 consists of all zeros. At this juncture, I believe that this is where the unpacked bytes would be located at. I may be wrong.</p>
+int main(int argc, char** argv) {
+    int x = shellcoding();
+    printf("%x\n", x);
+    return 0;
+}
+</code></pre>
 
-<p><img src="/images/flash_analysis_1/eab3071ac99e4b529e312194aaa6f297.png" alt="eab3071ac99e4b529e312194aaa6f297.png" /></p>
+<hr />
 
-<p>We see that from this output, there are attempt to set persistence and also get common api like <code class="language-plaintext highlighter-rouge">GetProcessAddress</code> and <code class="language-plaintext highlighter-rouge">LoadLibrary</code>.</p>
+<p>shellcoding.asm :</p>
 
-<h2 id="static-analysis-1">Static Analysis</h2>
-<h3 id="persistence">Persistence</h3>
-<p>As we suspected, it places the path of microsofthelp.exe into the run key in the registry
-<img src="/images/flash_analysis_1/b037901cf4ed4c25804d2003b722816e.png" alt="runkey.png" /></p>
+<pre><code class="language-asm">.code
 
-<h3 id="to-further-debug">To Further debug,</h3>
+	shellcoding PROC PUBLIC
+	
+			xor rax, rax   
+			mov ax, 1337h  ; Stores return value in rax
+			ret
 
-<p>Have to set settings to the path that it is looking out for. Or we can always patch. In this case, we choose the former.</p>
+	shellcoding ENDP
 
-<p><img src="/images/flash_analysis_1/f5bf1db494ce44e095b5da6a18fbf6ad.png" alt="2_settings_to_debug_further.png" /></p>
+end
+</code></pre>
 
-<p>Only then will we be able to see the mutex being created.</p>
+<p>If you setup is running smoothly, you should see hex value 1337</p>
 
-<h3 id="fakenet-ng">Fakenet-ng</h3>
-<p>Using Fake net, we see that it attempts to connect to 239.255.255.250:3702.</p>
+<hr />
 
-<p><img src="/images/flash_analysis_1/5e9a953f9a89425fb3b12684a61ae715.png" alt="3. outbound_traffic_attempt.png" /></p>
+<h2 id="getting-peb-from-teb">Getting PEB from TEB</h2>
 
-<p>According to Mandiant, this URL has been found being used by Russian Speaking Threat Actor advertising access to South Korean Metal Company on exploit.in (Underground hacking forum that has been around and active since 2005) primarily targgeting customer’s data and Intellectual Properties. Just from this, it is still unclear that this sample has any corelation to that incident.</p>
+<p>BE WARNED, THIS SHELLCODE WAS WRITTEN JUST AS AN EXERCISE WITHOUT ANY FORM OF STRUCTURE. SO PLEASE FORGIVE ME FOR ANYTHING UNCONVENTIONAL, OR BAD CODING PRACTICES … IF ANY.</p>
 
-<p>According to Virus Total, it has been marked as malicious.</p>
+<p>As reference, here is the full flow diagram of the path we are going to take to create the shellcode.</p>
 
-<p><img src="/images/flash_analysis_1/9f864cdb27d34a95840a5debdea39e1e.png" alt="9f864cdb27d34a95840a5debdea39e1e.png" /></p>
+<p><img src="/images/windows10shellcodePart2/Windows_Shellcoding_flow_dark.png" alt="Windows_Shellcoding_flow_dark.png" /></p>
 
-<p>Some information about what we are going to see :</p>
-<blockquote>
-  <p>Downloaded files: latest files that have been retrieved from URLs sitting at the domain or IP address under study. Note that the date recorded in this section is not the date at which the file was downloaded but rather the date of the last report that we have for the resource.</p>
+<p>For starters, to get the Thread Environment Block (TEB) information, we will need to get it from the GS Segment at offset of 0x30 according to this <a href="https://www.wikiwand.com/en/Win32_Thread_Information_Block">site</a>. Of course, we are able to get the Process Environment Block (PEB) straight from the GS Segment at offset 0x60, but for this exercise, we will just start from the TEB.</p>
 
-  <p>latest files that, through their execution in a sandboxed virtual environment, have been seen to perform some kind of communication with the IP address or domain under consideration.</p>
+<pre><code class="language-asm">    mov rax, qword ptr gs:[00000030h] ; TEB 
+</code></pre>
+<p>After getting the TEB address, we can use the offset of 0x60 to get the address of the PEB.</p>
 
-  <p>Files referring: VirusTotal will inspect the strings contained in files submitted to the service and apply certain regular expressions to these in order to identify domains and IP addresses. This section records files that have referenced the domain or IP address under consideration. Note that the date recorded in this section is not the date at which the file that give raise to the relationship was submitted but rather the date of the last report that we have for the resource.</p>
-</blockquote>
+<pre><code class="language-asm">    mov rax, qword ptr [rax + 60h] ; PEB
+</code></pre>
 
-<p><img src="/images/flash_analysis_1/ffa5a2462bc94407acfb90fa30e8918b.png" alt="ffa5a2462bc94407acfb90fa30e8918b.png" /></p>
+<p>Next, to get more data about the loaded modules, we want to find the <code class="language-plaintext highlighter-rouge">InMemoryOrderModuleList</code> which is offset of 0x10 from where Ldr is pointing to.</p>
 
-<p>Note that this IP is not new. In the lower group of files, they are all marked with <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> .</p>
+<pre><code class="language-asm">    mov rax, qword ptr [rax + 18h] ; _PEB_LDR_DATA
+</code></pre>
 
-<p>The upper group consists of many different types of malware:</p>
+<p>After getting the pointer to the <code class="language-plaintext highlighter-rouge">_LDR_DATA_TABLE_ENTRY</code>, we can prepare for the traversal of the doubly linked-list  <code class="language-plaintext highlighter-rouge">_LIST_ENTRY</code> by getting the <code class="language-plaintext highlighter-rouge">InMemoryOrderLinks</code> at offset 0x10 of the table entry. We will traverse the doubly linked-list twice to get to <code class="language-plaintext highlighter-rouge">Kernel32.dll</code> information. Once we have arrived, we can subtract 0x10 from the FLINK of the current <code class="language-plaintext highlighter-rouge">_LIST_ENTRY</code> to get to the <code class="language-plaintext highlighter-rouge">_LDR_DATA_TABLE_ENTRY</code>.</p>
+
+<pre><code class="language-asm">    mov rax, qword ptr [rax + 20h] ; InMemoryOrderModuleList
+    mov rax, [rax]; next flink 
+    mov rax, [rax]; next flink ; this should be kernel32.dll
+    lea rax,  [rax-10h] ; _LDR_DATA_TABLE_ENTRY
+</code></pre>
+
+<p>Since we are now at the <code class="language-plaintext highlighter-rouge">_LDR_DATA_TABLE_ENTRY</code> of kernel32.dll, we will want to record the DllBase for calculation of Virtual Addresses from RVA values later on. This DllBase contains the pointer to the loaded DLL which means that we should also be able to see the MZ Signature in memory.</p>
+
+<pre><code class="language-asm">    mov rax, qword ptr[rax+30h] ; RAX = The Dll base with MZ Signature
+</code></pre>
+
+<p>The next thing to do is to look for the export table. According to the chart, we have to first find the offset of the New EXE Header which is at offset 0x3c from the dll base address. After that, at fixed offset of 0x88, we will be able to find and calculate the Virtual Address of the Export Table.</p>
+
+<pre><code class="language-asm">    xor rbx, rbx                    ; clear just in case the upper 32 bits contains something
+    mov ebx, dword ptr [rax + 3ch]  ; Get offset of new Exe header 
+    add rbx, rax                    ; offset + Image Base (Virtual Address) - should see the "PE" header
+    xor rcx, rcx                    ; clear just in case the upper 32 bits 
+    mov ecx, dword ptr [rbx]		; Get RVA of Export Directory
+    add rcx, rax					;  RCX = Virtual Address of Export Directory
+</code></pre>
+
+<p>For this shellcode, I have made some space on the stack for variables. Since I did not know initially how many variables I may need, I have created 0x90 bytes extra space at the start.</p>
+
+<pre><code class="language-asm">    push rbp 
+    mov rbp, rsp
+    sub rsp, 90h    ; Set some space for variables
+</code></pre>
+
+<p>These are used to store some of the virtual addresses for possible future use. This may be redundant in the end but you can clean up this part should you want to optimize this shellcode in the near future.</p>
+
+<p>Now, let’s calculate and store Virtual Addresses of the different tables.</p>
+
+<pre><code class="language-asm">    mov qword ptr [rbp-90h], rcx	; &lt;------------- Virtual Address of Export Directory
+
+    xor rdx, rdx
+    mov edx, dword ptr [rcx + 1ch]   ; RVA of Function table
+    add rdx, rax                     ; Virtual Address of Function Table
+    mov qword ptr [rbp-70h], rdx     ; &lt;------------ Virtual Address of function Table
+    
+    xor rbx, rbx
+    mov edx, dword ptr [rcx + 20h]   ; RVA of Name Table
+    add rdx, rax					 ; Virtual Address of Name Table
+    mov qword ptr [rbp-60h], rdx     ; &lt;------------ Virtual Address of Name Table
+
+</code></pre>
+
+<p>At this stage, this is where we want to find the function name from the function name table by string comparison to get the ordinal value. A fast way to do this is to make use of the <code class="language-plaintext highlighter-rouge">repe cmpsb</code> instruction to so.</p>
+
+<p>Since this is a 64 bit shellcode and the length “WinExec” is smaller than 8 bytes, we can just store the bytes into a register and push it onto the stack. Of course, we will need to push the string terminator to the stack first as well. Note that the bytes of “WinExec” should be in little Endian format.</p>
+
+<pre><code class="language-asm">    push rcx ; String terminator
+    mov rcx, 636578456e6957FFh	; WinExec string with FF which we will shift to fill in space
+    shr rcx, 8
+    push rcx			; Push the string value onto the stack
+    push rsp			; stack address to targeted function name "WinExec"
+
+    xor rcx, rcx
+    mov cl, 07h;; length of the string "WinExec"
+	push rcx                ; push on to the stack so I can group the variables together for easier reference
+
+    pop r8			; &lt;----- Function name Length and the counter
+    pop r9			; &lt;----- String Address to WinExec string
+    xor r12, r12		; &lt;----- used to store the ordinal N
+
+</code></pre>
+
+<p>Before proceeding, let us understand the <code class="language-plaintext highlighter-rouge">repe cmpsb</code> instruction better.</p>
+
+<p>This instruction would make use of</p>
 <ul>
-  <li>Grayware</li>
-  <li>Phishing PDFs</li>
-  <li>Downloaders</li>
-  <li>Spreaders</li>
+  <li>rcx as a counter (decrement upon each comparison of bytes)
+    <ul>
+      <li>Thus have to store the length of “WinExec” - we already have this</li>
+    </ul>
+  </li>
+  <li>rdi as the destination string register</li>
+  <li>rsi as the source string register</li>
+  <li>zero flag
+    <ul>
+      <li>if not zero, then it is a mismatch (jne)</li>
+      <li>if mismatch we will want to create a loop</li>
+    </ul>
+  </li>
 </ul>
 
-<h1 id="summary">Summary</h1>
+<pre><code class="language-asm">    IterateAndCompareFunctionName:
+        mov rcx, r8	; act as counter for the loop - re-update since rcx is decremented
+        mov rsi, r9     ; putting the WinExec String pointer to the source register for repe cmpsb part
+        mov rdx, qword ptr [rbp-60h]   ; Virtual Address of Name Table
+        mov edx, dword ptr [rdx + r12*4]  ; RVA of nth string and *4 because that is the size of RVA in the name table 
+        inc r12			; increment the ordinal value
+        lea r11, [rdx+ rax]	; Virtual Address of first string  (RVA + Base Address)
+        mov rdi, r11		; Move that virtual address to destination register for repe cmpsb part
+        repe cmpsb		; compare the two strings between source and destination register for rcx number of bytes
+        jne IterateAndCompareFunctionName   ; jne if mismatch
 
-<p>As I do not have communication with C2 server, I am not able to retrieve the data from it and therefore am not able to go perform a deep dive into the payload :( However, we are still able to suggest that this sample specifically acts as both dropper and downloader!.</p>
+    add rsp, 10h       ; do stack house keeping ( remember we pushed the string on to the stack ) 
+</code></pre>
 
-<p>Based on VirusTotal relation graph, there is a high probability that this can be used to drop <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> malware into the Victim’s PC.</p>
+<p>Once we are out of the loop, this means that we have found the string and have the stored ordinal in register r12. It is now time to find the Virtual address of “WinExec” function. Here is the pseudocode that we are going to follow to find the Virtual Address of the “WinExec” Function.</p>
 
-<p>To end it off, here is the rough flow of event :</p>
+<pre><code class="language-asm">void* WinExecVirtualAddress = *(DWORD*)((BYTE*)&amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))  +  DllBaseAddress;
+</code></pre>
 
-<p><img src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="326d26f624af4b02bae8b528cdce9752.png" /></p>
+<p>Converting that to asm, we have the following :</p>
+
+<pre><code class="language-asm">    ;; Now, the function address table contains the RVA (DWORD) to the function address, we can use the 
+    ;; In Pseudocode, we want to see this
+    ;; DWORD RVA = *(DWORD*)((BYTE*)&amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))
+    ;; We decrease ordinal value by 1 since ordinal starts at 1 but offset starts at 0
+    ;; in the function address table
+
+    dec r12							; (ordinal-1)
+    xor rdi, rdi
+    xor rdx, rdx
+    mov dl, 04h
+    add rdi, rdx					; size of dword
+
+    push rax						; preserve the dll base address
+    mov rax, rdi					; store rax to mulitply with (sizeof(DWORD))
+    mov rsi, r12					; (ordinal-1)
+    imul rsi						; (ordinal-1)*sizeof(DWORD)		
+    mov rsi, rax					; rsi = (ordinal-1)*sizeof(DWORD)
+    pop rax							; restore the base address for calculation of virtual address
+    
+    mov rdi, qword ptr [rbp-70h]	; Virtual Address of Function Address Table
+    lea rdi, [rdi + rsi]			; (DWORD*)((BYTE*)&amp;functionAddressTable + (ordinal-1)*sizeof(DWORD))
+    mov edi, dword ptr [rdi]		; Dereference to get the RVA of the "WinExec" function"
+    add rdi, rax					; Get Virtual Address of WinExec by adding Dll base address
+
+</code></pre>
+
+<p>Now we can effectively attempt to call the WinExec function.</p>
+
+<p>This is what we can do :</p>
 
 <ol>
-  <li>If current file modules is not the same as <code class="language-plaintext highlighter-rouge">C:/windows/microsofthelp.exe</code> then create it there. if it fails, then it will attempt to copy itself into that directory and set registry key for persistence</li>
-  <li>if it fails, sleep and try again</li>
-  <li>if it passes, then create a mutex <code class="language-plaintext highlighter-rouge">pomdfghrt</code> and find if there are similar samples. If there are, then delete them</li>
-  <li>Decrypt 0x80 bytes of data with xor key within <code class="language-plaintext highlighter-rouge">.nsp0</code> section</li>
-  <li>Check if <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code> exists in same directory. If not, it will decrypt data and write into it.</li>
-  <li>Load the <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code></li>
-  <li>Connect to internet and get back encrypted response</li>
-  <li>Decrypt and ultimately run via <code class="language-plaintext highlighter-rouge">ShellExecute</code> command.</li>
+  <li>create the <code class="language-plaintext highlighter-rouge">C:\Windows\System32\calc.exe</code></li>
+  <li>Store the pointer to the string into rcx (first argument of WinExec)</li>
+  <li>Store the value 1 into rdx (second argument == SW_SHOWNORMAL)</li>
+  <li>call register rdi (containing the Virtual Address of WinExec)</li>
 </ol>
+
+<pre><code class="language-asm">    ;; Now address of WinExec is in rdi
+    ;; Write string of calc.exe into the stack and get the stack pointer before calling 
+
+    mov rbx, 6578652e41414141h  ; exe.AAAA
+    shr rbx, 32                 ;  ".exe\x00\x00\x00\x00"
+    push rbx    
+    mov rbx, 636c61635c32336dh  ; 
+    push rbx
+    mov rbx, 65747379735c7377h  ; \sw
+    push rbx
+    mov rbx, 6f646e69575c3a43h  ; odniW\:C
+    push rbx                        
+    push rsp  ; Push the stackpointer pointing to the calc.exe string
+
+    pop rcx   ; pass in as first argumnent
+    inc rdx   ; SW_SHOWNORMAL as second argument
+    
+    call rdi  ; Call WinExec
+</code></pre>
+
+<p>Let’s now set a breakpoint at <code class="language-plaintext highlighter-rouge">call rdi</code> and see the result of arguments !</p>
+
+<p><img src="/images/windows10shellcodePart2/winexec_correctargs.png" alt="winexec_correctargs.png" /></p>
+
+<p>To verify that register rdi is indeed WinExec, let’s check from WinDBG :</p>
+
+<p><img src="/images/windows10shellcodePart2/winexec_correctfunction.png" alt="winexec_correctfunction.png" /></p>
+
+<p>Now, all seems to be correct however, our calculator is not being spawned @.@</p>
+
+<p>Now to understand why this is the case, we will realise that the stack values is being altered in the previous stack frame. We can see that in the highlighted region.</p>
+
+<p><img src="/images/windows10shellcodePart2/destroyingstack.png" alt="destroyingstack.png" /></p>
+
+<p>To solve this, we should add a pivot to a lower stack location of 0x20</p>
+
+<pre><code class="language-asm">pop rcx   ; pass in as first argumnent
+inc rdx   ; SW_SHOWNORMAL
++ sub rsp, 20h   ; Avoid messing with stack for the top 0x20 bytes
+call rdi  ; Call WinExec
+</code></pre>
+
+<p>With this, we should be successful in spawning a calc :D</p>
+
+<p><img src="/images/windows10shellcodePart2/calc.png" alt="calc.png" /></p>
+
+<p>The following is the assembled bytes from https://defuse.ca/online-x86-assembler.htm#disassembly. You can immediately use and test if it works on your PC.</p>
+
+<div class="language-c highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kt">char</span> <span class="n">shellcode</span><span class="p">[]</span> <span class="o">=</span> <span class="s">"</span><span class="se">\x55\x48\x89\xE5\x48\x81\xEC\x90\x00\x00\x00\x48\x31\xC0\x65\x48\x8B\x04\x25\x30\x00\x00\x00\x48\x8B\x40\x60\x48\x8B\x40\x18\x48\x8B\x40\x20\x48\x8B\x00\x48\x8B\x00\x48\x8D\x40\xF0\x48\x8B\x40\x30\x48\x31\xDB\x8B\x58\x3C\x48\x01\xC3\x48\x81\xC3\x88\x00\x00\x00\x48\x31\xC9\x8B\x0B\x48\x01\xC1\x48\x89\x8D\x70\xFF\xFF\xFF\x48\x31\xD2\x8B\x51\x1C\x48\x01\xC2\x48\x89\x55\x90\x48\x31\xDB\x8B\x51\x20\x48\x01\xC2\x48\x89\x55\xA0\x48\x31\xC9\x48\x31\xD2\x51\x48\xB9\xFF\x57\x69\x6E\x45\x78\x65\x63\x48\xC1\xE9\x08\x51\x54\x48\x31\xC9\xB1\x07\x51\x41\x58\x41\x59\x4D\x31\xE4\x4C\x89\xC1\x4C\x89\xCE\x48\x8B\x55\xA0\x42\x8B\x14\xA2\x49\xFF\xC4\x4C\x8D\x1C\x02\x4C\x89\xDF\xF3\xA6\x75\xE4\x48\x83\xC4\x10\x49\xFF\xCC\x48\x31\xFF\x48\x31\xD2\xB2\x04\x48\x01\xD7\x50\x48\x89\xF8\x4C\x89\xE6\x48\xF7\xEE\x48\x89\xC6\x58\x48\x8B\x7D\x90\x48\x8D\x3C\x37\x8B\x3F\x48\x01\xC7\x48\xBB\x41\x41\x41\x41\x2E\x65\x78\x65\x48\xC1\xEB\x20\x53\x48\xBB\x6D\x33\x32\x5C\x63\x61\x6C\x63\x53\x48\xBB\x77\x73\x5C\x73\x79\x73\x74\x65\x53\x48\xBB\x43\x3A\x5C\x57\x69\x6E\x64\x6F\x53\x54\x59\x48\xFF\xC2\x48\x83\xEC\x20\xFF\xD7</span><span class="s">"</span><span class="p">;</span>
+</code></pre></div></div>
+
+<h2 id="conclusion">Conclusion</h2>
+
+<p>During the two days of looking through shellcodes, I think I have gotten a good idea of how shellcodes is being created. Hopefully, this had helped you have a much clearer and concrete understanding about basic shellcoding as well and go on to create other kinds of shellcode!</p>
+
+<p>You can refer to the <a href="https://github.com/Owl4444/Understanding_Windows_Shellcoding">my github repository</a> for the full code.</p>
 
 <hr />
 
@@ -518,30 +570,30 @@ C:\vshsn.exe
 
     <div class="post__share">
       <div class="share__list">
-        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:4000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
 
-        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=A%20quick%20Look%20at%20a%20Dropper%20and%20Downloader&url=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%202&url=http://0.0.0.0:4000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
 
-        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/&amp;media=http://0.0.0.0:4000/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png&amp;description=A%20quick%20Look%20at%20a%20Dropper%20and%20Downloader" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:4000/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/&amp;media=http://0.0.0.0:4000/images/windows10shellcodePart2/Windows10Shellcodepart2.png&amp;description=Understanding%2064%20bits%20Windows%2010%20Shellcode%20(Calc.exe)%20-%20Part%202" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
       </div>
     </div>
 
     <div class="post__navigation">
       
-      <a class="prev" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
-        <img class="post__nav-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+      <a class="prev" href="/2022/09/07/Understanding_64_bits_Windows_10_Shellcode/">
+        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart1/Windows10Shellcodepart1.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1">
         <div class="post__nav-box">
           <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
-          <h4 class="post__nav__title">Flare-on 9 - Challenge 9 and 11</h4>
+          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1</h4>
         </div>
       </a>
       
       
-      <a class="next" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
-        <img class="post__nav-image lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+      <a class="next" href="/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
+        <img class="post__nav-image lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
         <div class="post__nav-box">
           <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
-          <h4 class="post__nav__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h4>
+          <h4 class="post__nav__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h4>
         </div>
       </a>
       
@@ -572,20 +624,13 @@ C:\vshsn.exe
             
 
             
-            
-            
-            
-
-            
-
-            
 
             <div class="article col col-4 col-d-6 col-t-12 grid__post">
               <div class="article__inner">
 
                 
-                <a class="article__image" href="/2024/05/20/A_quick_peek_at_Black_Wood_DLL_Loader/">
-                  <img class="lazy" data-src="/images/BlackWoodDllLoader/background.png" alt="A Quick Look at BlackWood DLL Loader">
+                <a class="article__image" href="/2024/10/21/TISC2024_Challenge_8_Writeup/">
+                  <img class="lazy" data-src="/images/TISC2024_Chall8_Writeup/owl_with_phone.png" alt="TISC 2024 Challenge 8 (Wallfacer) Writeup">
                 </a>
                 
 
@@ -595,16 +640,16 @@ C:\vshsn.exe
                     <span class="article__minutes">
                       
                       
-                        9 min read
+                        22 min read
                       
                       <time class="article__date"
-                        datetime="2024-05-20T04:56:00+00:00">May 20, 2024</time>
+                        datetime="2024-10-21T09:22:00+00:00">Oct 21, 2024</time>
                     </span>
                   </div>
 
-                  <h2 class="article__title">A Quick Look at BlackWood DLL Loader</h2>
+                  <h2 class="article__title">TISC 2024 Challenge 8 (Wallfacer) Writeup</h2>
 
-                  <p class="article__excerpt">Exploring VXUnderground and chanced upon a DLL Loader from 2024, and so why not take a look at it?</p>
+                  <p class="article__excerpt">APK Challenge from TISC 2024</p>
 
                   <div class="article__bottom">
 
@@ -622,9 +667,9 @@ C:\vshsn.exe
                       <span>in</span>
                       <span class="article-tags">
                         
-                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
                         
-                          <a href="/tag/MalwareAnalysis" class="article__tag">MalwareAnalysis</a>
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
                         
                       </span>
                       
@@ -646,64 +691,13 @@ C:\vshsn.exe
             
 
             
-
-            <div class="article col col-4 col-d-6 col-t-12 grid__post">
-              <div class="article__inner">
-
-                
-                <a class="article__image" href="/2023/09/05/Relocation_Table_and_IAT_Fixing/">
-                  <img class="lazy" data-src="/images/reloc_iat_fixing/backgroundimage.png" alt="Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File">
-                </a>
-                
-
-                <div class="article__content">
-
-                  <div class="article__meta">
-                    <span class="article__minutes">
-                      
-                      
-                        10 min read
-                      
-                      <time class="article__date"
-                        datetime="2023-09-05T09:22:00+00:00">Sep 5, 2023</time>
-                    </span>
-                  </div>
-
-                  <h2 class="article__title">Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File</h2>
-
-                  <p class="article__excerpt">A dive into the fixing of Reloc table and IAT by creating a reflective loader.</p>
-
-                  <div class="article__bottom">
-
-                    
-                    <div class="article__author">
-                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-                    </div>
-                    
-
-                    <div class="article__bottom-meta">
-                      
-                        <a href="/about/" class="article__author-link">MalwareOwl</a>
-                      
-                      
-                      <span>in</span>
-                      <span class="article-tags">
-                        
-                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
-                        
-                      </span>
-                      
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
+            
+            
+            
 
             
-                
-              
+
+            
             
             
             
@@ -757,6 +751,73 @@ C:\vshsn.exe
                           <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
                         
                           <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        22 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-25T18:45:00+00:00">Mar 25, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
                         
                       </span>
                       

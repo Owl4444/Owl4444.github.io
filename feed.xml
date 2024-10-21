@@ -5,8 +5,8 @@
     <description>Malware Owl Blog on the Journey</description>
     <link>http://0.0.0.0:4000/</link>
     <atom:link href="http://0.0.0.0:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 21 Oct 2024 11:30:57 +0000</pubDate>
-    <lastBuildDate>Mon, 21 Oct 2024 11:30:57 +0000</lastBuildDate>
+    <pubDate>Mon, 21 Oct 2024 15:39:22 +0000</pubDate>
+    <lastBuildDate>Mon, 21 Oct 2024 15:39:22 +0000</lastBuildDate>
     <generator>Jekyll v4.3.4</generator>
     
       <item>
@@ -15,7 +15,7 @@
 
 &lt;p&gt;TISC 2024 Challenge 8, titled “WallFacer,” is an APK reverse engineering challenge that requires bypassing multiple walls through patching. While it is possible to solve this challenge using tools like Frida to manipulate process memory, I opted for the route of directly patching the APK.&lt;/p&gt;
 
-&lt;p&gt;Throughout this challenge, I gained deeper insight into repackaging APKs by modifying the binary. Based on past malware samples, patching binaries to bypass security mitigations is not uncommon. Attackers often need to circumvent additional security measures and integrity checks, whether through Android’s verification methods or custom native signature checks. This process has given me a greater appreciation for the techniques involved. While patching is still one of the methods being used, threat actors are increasingly employing more sophisticated methods like partial virtualization and hooking techniques &lt;a href=&quot;https://promon.co/security-news/fjordphantom-android-malware&quot;&gt;(Fjord Phantom)&lt;/a&gt;, seccomp filters, and more to bypass native signature checks &lt;a href=&quot;https://promon.co/app-threat-reports/snowblind&quot;&gt;(Snowblind Attacks)&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;Throughout this challenge, I gained deeper insight into repackaging APKs by modifying the binary. Reflecting on previous encounters with mobile malware samples, patching binaries to bypass security mitigations is not uncommon. Attackers often need to circumvent additional security measures and integrity checks. This challenge has given me a greater appreciation for the techniques involved.&lt;/p&gt;
 
 &lt;h1 id=&quot;setup&quot;&gt;Setup&lt;/h1&gt;
 
@@ -1062,7 +1062,7 @@ adb shell am start &lt;span class=&quot;nt&quot;&gt;-n&lt;/span&gt; com.wall.fac
 &lt;p&gt;FLAG : TISC{1&lt;em&gt;4m_y0ur_w4llbr34k3r&lt;/em&gt;!i#Leb}&lt;/p&gt;
 
 &lt;h1 id=&quot;conclusion&quot;&gt;Conclusion&lt;/h1&gt;
-&lt;p&gt;While there are alternative methods to solve it, such as using memory patching, this write-up showcases the approach I took by directly patching and repackaging the APK.&lt;/p&gt;
+&lt;p&gt;While there are alternative methods to solve it, such as using memory patching, this write-up showcases the approach I took by directly patching and repackaging the APK. Interestingly, I chanced upon &lt;a href=&quot;https://github.com/eugene-lim/tisc-2024-writeup?tab=readme-ov-file#8-wallfacer&quot;&gt;SpaceRaccoon’s Writeup&lt;/a&gt; on the use of Unicorn Emulation to solve this challenge as well!&lt;/p&gt;
 
 &lt;hr /&gt;
 

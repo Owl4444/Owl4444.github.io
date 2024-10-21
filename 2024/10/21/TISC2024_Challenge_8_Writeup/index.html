@@ -276,7 +276,7 @@
 
 <p>TISC 2024 Challenge 8, titled “WallFacer,” is an APK reverse engineering challenge that requires bypassing multiple walls through patching. While it is possible to solve this challenge using tools like Frida to manipulate process memory, I opted for the route of directly patching the APK.</p>
 
-<p>Throughout this challenge, I gained deeper insight into repackaging APKs by modifying the binary. Based on past malware samples, patching binaries to bypass security mitigations is not uncommon. Attackers often need to circumvent additional security measures and integrity checks, whether through Android’s verification methods or custom native signature checks. This process has given me a greater appreciation for the techniques involved. While patching is still one of the methods being used, threat actors are increasingly employing more sophisticated methods like partial virtualization and hooking techniques <a href="https://promon.co/security-news/fjordphantom-android-malware">(Fjord Phantom)</a>, seccomp filters, and more to bypass native signature checks <a href="https://promon.co/app-threat-reports/snowblind">(Snowblind Attacks)</a>.</p>
+<p>Throughout this challenge, I gained deeper insight into repackaging APKs by modifying the binary. Reflecting on previous encounters with mobile malware samples, patching binaries to bypass security mitigations is not uncommon. Attackers often need to circumvent additional security measures and integrity checks. This challenge has given me a greater appreciation for the techniques involved.</p>
 
 <h1 id="setup">Setup</h1>
 
@@ -1323,7 +1323,7 @@ adb shell am start <span class="nt">-n</span> com.wall.facer/.query
 <p>FLAG : TISC{1<em>4m_y0ur_w4llbr34k3r</em>!i#Leb}</p>
 
 <h1 id="conclusion">Conclusion</h1>
-<p>While there are alternative methods to solve it, such as using memory patching, this write-up showcases the approach I took by directly patching and repackaging the APK.</p>
+<p>While there are alternative methods to solve it, such as using memory patching, this write-up showcases the approach I took by directly patching and repackaging the APK. Interestingly, I chanced upon <a href="https://github.com/eugene-lim/tisc-2024-writeup?tab=readme-ov-file#8-wallfacer">SpaceRaccoon’s Writeup</a> on the use of Unicorn Emulation to solve this challenge as well!</p>
 
 <hr />
 

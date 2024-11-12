@@ -27,6 +27,9 @@ This site is a place where I would put things that I have learnt along the way :
 - 12 Nov 2022 - [[20221112181000 - BLG - Flare-on 9 - Challenge 9 and 11|Flare-on 9 - Challenge 9 and 11]]
 
 ## N-Day Analysis
-
+- 06 May 2022 - [[20220506000000 - BLG - A Case Study of an Incorrect Optimization in V8|A Case Study of an Incorrect Optimization in V8]]
 - 16 Oct 2020 - [[20201016000000 - BLG - Analysis & Exploitation of a Recent TP-Link Archer A7 Vulnerability|Analysis & Exploitation of a Recent TP-Link Archer A7 Vulnerability]]
 - 07 Aug 2020 - [[20200807000000 - BLG - ASUSWRT URL Processing Stack Buffer Overflow]]
+
+# Origami
+- 17 Nov 2022 - [[20221117000000 - BLG - Origami Scorpion Design from Start to Finish]]

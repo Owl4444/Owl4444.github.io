@@ -20,8 +20,8 @@ jobs:
           source: blog/content
           page_title: "Owl4444"
           quartz_layout: quartz.config.ts
-          quartz_icon: "blog/content/img/banner.png"
-          quartz_banner: "blog/content/img/banner.png"
+          quartz_icon: "banner.png"
+          quartz_banner: "banner.png"
           
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1

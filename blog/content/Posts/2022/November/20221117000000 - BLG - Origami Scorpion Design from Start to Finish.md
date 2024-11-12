@@ -2,8 +2,7 @@
 ID: 20221117000000
 tags:
   - Blogging
-  - vuln_research/n-day
-  - Sharing-session
+  - Origami
 date: 2022/11/17
 ---
 ![[Pasted image 20241113025648.png]]

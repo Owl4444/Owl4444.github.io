@@ -154,7 +154,7 @@ http://windowfin.com/bbs/board.php/board.php?bo_table=windowfin&wr_id=592329 lin
 
 ![[Pasted image 20241114180046.png]]
 
-The hash there seems legitimate according to [Virustotal - ec386aa4a8e53033f92b80291c51e8b4](https://www.virustotal.com/gui/file/400911553f852ebf3e719a3d9fe03f8403546a8e397e1590f94195aa4e43644e). Furthermore, we see the `neolook@gmail.com` string as well in the [[#^5dfb55|full string listing]].
+The hash there seems legitimate according to [Virustotal - ec386aa4a8e53033f92b80291c51e8b4](https://www.virustotal.com/gui/file/400911553f852ebf3e719a3d9fe03f8403546a8e397e1590f94195aa4e43644e). Furthermore, we see the `neolook@gmail.]com` string as well in the [[#^5dfb55|full string listing]].
 
 ![[Pasted image 20241114175711.png]]
 ##### Full `_0x11db` String Array

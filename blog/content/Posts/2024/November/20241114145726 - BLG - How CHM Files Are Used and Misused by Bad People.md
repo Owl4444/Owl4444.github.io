@@ -84,7 +84,7 @@ Here is what is in the `Table of Contents.hhc` file:
 ```
 
 #### Start.html
-This is the first file that gets rendered. The `Command` here is `ShortCut`. An object with id `x` is created as a button which handles the shortcut. One of the item being a command to run `mshta.exe` to execute the `9.html`. Unfortunately, I am not able to find the original `9.html` on VirusTotal. However, that gives a really good idea about how `chm` files are used as part of the chain when delivering malware.
+This is the first file that gets rendered. The `Command` here is `ShortCut`. A `Button` object with id `x` is created as a button which handles the shortcut. One of the item being a command to run `mshta.exe` to execute the `9.html`. Unfortunately, I am not able to find the original `9.html` on VirusTotal. However, that gives a really good idea about how `chm` files are used as part of the chain when delivering malware.
 
 ```html
 <HTML>
@@ -154,7 +154,7 @@ http://windowfin.com/bbs/board.php/board.php?bo_table=windowfin&wr_id=592329 lin
 
 ![[Pasted image 20241114180046.png]]
 
-The hash there seems legitimate according to [Virustotal - ec386aa4a8e53033f92b80291c51e8b4](https://www.virustotal.com/gui/file/400911553f852ebf3e719a3d9fe03f8403546a8e397e1590f94195aa4e43644e). Furthermore, we see the `neolook@gmail.com` string as well in the [[#^5dfb55|full string listing]].
+The hash there seems legitimate according to [Virustotal - ec386aa4a8e53033f92b80291c51e8b4](https://www.virustotal.com/gui/file/400911553f852ebf3e719a3d9fe03f8403546a8e397e1590f94195aa4e43644e). Furthermore, we see the `neolook@gmail.]com` string as well in the [[#^5dfb55|full string listing]].
 
 ![[Pasted image 20241114175711.png]]
 ##### Full `_0x11db` String Array
@@ -267,7 +267,7 @@ Here is the content in the `.hhc` file.
 ```
 
 ### `README-yD8348.htm`
-The `propagandising.htm` does not seem to contain anything suspicious. However, the `README-yD8348.htm` contains command objects as `ShortCut` similar to what we have [[#Start.html|seen previously]]. 
+The `propagandising.htm` does not seem to contain anything suspicious. However, the `README-yD8348.htm` contains `Button` objects with Command to a `ShortCut` similar to what we have [[#Start.html|seen previously]]. 
 
 #### Encoded Command
 

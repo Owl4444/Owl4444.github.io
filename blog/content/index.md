@@ -37,8 +37,9 @@ This site is a place where I would put things that I have learnt along the way :
 - 17 Nov 2022 - [[20221117000000 - BLG - Origami Scorpion Design from Start to Finish|Origami Scorpion Design from Start to Finish]]
 
 ---
-# Misc Learning
+# Misc. Learning
 
 These are listing of things that I do not know previously and would like to learn more about it.
-- 
-	
+- 18 Nov 2024 - [[20241118234900 - BLG - What happen When We SYSCALL|What happen When We SYSCALL?]]
+
+---

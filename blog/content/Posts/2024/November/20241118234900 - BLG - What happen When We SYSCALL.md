@@ -4,9 +4,7 @@ Dateline: 2024-11-18
 tags:
   - Blogging
   - Intel_Architecture
-Created: 2023-06-13 09:27:00
-Last Modified: 2023-06-13 09:27:00
-date: 2023/06/13
+date: 2024-11-19
 ---
 # Description
 

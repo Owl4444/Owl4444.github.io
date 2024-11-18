@@ -6,6 +6,7 @@ tags:
   - Intel_Architecture
 date: 2024-11-19
 ---
+![[Pasted image 20241119010958.png]]
 # Description
 
 This post is a mini research on how SYSCALL is done under the hood. We will see how the different privilege levels would be adjusted to kernel mode.

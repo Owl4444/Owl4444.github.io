@@ -31,6 +31,7 @@ This site is a place where I would put things that I have learnt along the way :
 - 06 May 2022 - [[20220506000000 - BLG - A Case Study of an Incorrect Optimization in V8|A Case Study of an Incorrect Optimization in V8]]
 - 16 Oct 2020 - [[20201016000000 - BLG - Analysis & Exploitation of a Recent TP-Link Archer A7 Vulnerability|Analysis & Exploitation of a Recent TP-Link Archer A7 Vulnerability]]
 - 07 Aug 2020 - [[20200807000000 - BLG - ASUSWRT URL Processing Stack Buffer Overflow|ASUSWRT URL Processing Stack Buffer Overflow]]
+- 12 Jul 2020 - [[20200712093000 - BLG - CVE-2020-6418 - V8 Type Confusion Bug|CVE-2020-6418 - V8 Type Confusion Bug]]
 
 # Origami
 
@@ -40,6 +41,6 @@ This site is a place where I would put things that I have learnt along the way :
 # Misc. Learning
 
 These are listing of things that I do not know previously and would like to learn more about it.
-- 18 Nov 2024 - [[20241118234900 - BLG - What happen When We SYSCALL|What happen When We SYSCALL?]]
+- 18 Nov 2024 - [[20241118234900 - BLG - What Happens During a SYSCALL|What happen When We SYSCALL?]]
 
 ---

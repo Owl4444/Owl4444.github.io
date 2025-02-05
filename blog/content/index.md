@@ -9,6 +9,7 @@ This site is a place where I would put things that I have learnt along the way :
 
 ## Sample Analysis
 - 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]] 
+- 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
 ## Techniques
 - 15 Nov 2024 - [[20241114145726 - BLG - How CHM Files Are Used and Misused by Bad People|How CHM Files Are Used and Misused by Bad People]]
 - 01 Nov 2024 - [[20241101132806 - BLG- Loading and Executing .NET Binaries from Unmanaged Applications|Loading and Executing .NET Binaries from Unmanaged Applications]]

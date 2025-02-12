@@ -10,11 +10,10 @@ This site is a place where I would put things that I have learnt along the way :
 ## Sample Analysis
 - 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]] 
 - 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
-## Techniques
+## Malware Techniques
 - 15 Nov 2024 - [[20241114145726 - BLG - How CHM Files Are Used and Misused by Bad People|How CHM Files Are Used and Misused by Bad People]]
 - 01 Nov 2024 - [[20241101132806 - BLG- Loading and Executing .NET Binaries from Unmanaged Applications|Loading and Executing .NET Binaries from Unmanaged Applications]]
 - 05 Sep 2023 - [[20230905172200 - BLG - Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File|Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File]] 
-	- Learning how malware could be loaded reflectively by implementing 
 - 13 Jun 2023 - [[20230613092700 - BLG - Quick Study of Bring Your Own Vulnerable Driver (BYOVD)|Quick Study of Bring Your Own Vulnerable Driver (BYOVD)]]
 - 09 Sep 2022 - [[20220909000000 - BLG - Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2|Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2]]
 - 08 Sep 2022 - [[20220908000000 - BLG - Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1|Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1]]
@@ -41,7 +40,7 @@ This site is a place where I would put things that I have learnt along the way :
 ---
 # Misc. Learning
 
-These are listing of things that I do not know previously and would like to learn more about it.
 - 18 Nov 2024 - [[20241118234900 - BLG - What Happens During a SYSCALL|What happen When We SYSCALL?]]
+- 13 Feb 2025 - [[20250213050315 - BLG - Late Night Experimentation with OpenGrep|Late Night Experimentation with OpenGrep]]
 
 ---

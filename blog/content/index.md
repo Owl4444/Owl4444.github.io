@@ -7,7 +7,7 @@ This site is a place where I would put things that I have learnt along the way :
 # Malware Analysis
 
 ## Sample Analysis
-- 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID]]
+- 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID|Opaque Predicate Control Flow Deobfuscation- ICEDID]]
 - 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]]
 - 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
 ## Malware Techniques

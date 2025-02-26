@@ -4,11 +4,11 @@ title: Welcome to my Blog
 ![[Pasted image 20241111180302.png]]
 # Description
 This site is a place where I would put things that I have learnt along the way :D
-
 # Malware Analysis
 
 ## Sample Analysis
-- 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]] 
+- 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID]]
+- 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]]
 - 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
 ## Malware Techniques
 - 23 Feb 2025 - [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record (MBR)|Analysis on Destructive MEMZ's Master Boot Record (MBR)]]
@@ -19,15 +19,12 @@ This site is a place where I would put things that I have learnt along the way :
 - 09 Sep 2022 - [[20220909000000 - BLG - Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2|Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 2]]
 - 08 Sep 2022 - [[20220908000000 - BLG - Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1|Understanding 64 bits Windows 10 Shellcode (Calc.exe) - Part 1]]
 - 06 Sep 2022  - [[20220906042300 - BLG - DudeLocker (Flare-on 2016) - RVA and Import Descriptors|DudeLocker (Flare-on 2016) - RVA and Import Descriptors]]
-
-
 # Capture The Flag
 
 - 21 Oct 2024  - [[20241021000000 - BLG - TISC 2024 Challenge 8 (Wallfacer) Writeup|TISC 2024 - Challenge 8 (Wallfacer)]]
 - 26 Mar 2023 - [[20230326024500 - BLG - Alien Saboteaur - HTB Cyber Apocalyse 2023|Alien Saboteaur - HTB Cyber Apocalyse 2023]]
 - 26 Sep 2022 - [[20220926030800 - DUCTF2022 - EZPZ RE + Pwn|DUCTF2022 - EZPZ RE + Pwn]]
 - 12 Nov 2022 - [[20221112181000 - BLG - Flare-on 9 - Challenge 9 and 11|Flare-on 9 - Challenge 9 and 11]]
-
 # N-Day Analysis
 
 - 06 May 2022 - [[20220506000000 - BLG - A Case Study of an Incorrect Optimization in V8|A Case Study of an Incorrect Optimization in V8]]

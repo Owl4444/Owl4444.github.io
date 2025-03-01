@@ -7,10 +7,11 @@ This site is a place where I would put things that I have learnt along the way :
 # Malware Analysis
 
 ## Sample Analysis
+- 01 Mar 2025 - [[20250225122153 - BLG - Taking a look into NotPetya's MBR Corruption|Taking a look into NotPetya's MBR Corruption]]
 - 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID|Opaque Predicate Control Flow Deobfuscation- ICEDID]]
 - 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]]
 - 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
-- 01 Mar 2025 - [[20250225122153 - BLG - Taking a look into NotPetya's MBR Corruption|Taking a look into NotPetya's MBR Corruption]]
+
 ## Malware Techniques
 - 23 Feb 2025 - [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record (MBR)|Analysis on Destructive MEMZ's Master Boot Record (MBR)]]
 - 15 Nov 2024 - [[20241114145726 - BLG - How CHM Files Are Used and Misused by Bad People|How CHM Files Are Used and Misused by Bad People]]
@@ -40,7 +41,8 @@ This site is a place where I would put things that I have learnt along the way :
 ---
 # Misc. Learning
 
-- 18 Nov 2024 - [[20241118234900 - BLG - What Happens During a SYSCALL|What happen When We SYSCALL?]]
 - 13 Feb 2025 - [[20250213050315 - BLG - Late Night Experimentation with OpenGrep|Late Night Experimentation with OpenGrep]]
+- 18 Nov 2024 - [[20241118234900 - BLG - What Happens During a SYSCALL|What happen When We SYSCALL?]]
+
 
 ---

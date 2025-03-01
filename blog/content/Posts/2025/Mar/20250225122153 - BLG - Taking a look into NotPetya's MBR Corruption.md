@@ -193,9 +193,9 @@ This is tricky because causes the system to restart somehow. Therefore, setting 
 
 ## Debugging with GDB
 
-If you would like to try it out, the MBR is uploaded to Github 
-For the debugging setup, I used QEMU similar to the [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record (MBR)|MEMZ Blogpost]].
+If you would like to try it out, the MBR is uploaded to [Github](https://github.com/Owl4444/NotPetya_MBR_Analysis) 
 
+For the debugging setup, I used QEMU similar to the [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record (MBR)|MEMZ Blogpost]].
 ### Running Qemu
 
 ```bash

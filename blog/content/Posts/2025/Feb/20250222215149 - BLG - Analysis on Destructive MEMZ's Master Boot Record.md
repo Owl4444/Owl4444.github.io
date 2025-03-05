@@ -430,7 +430,7 @@ I had fun understanding what happens under the hood including:
 ### Bootloader From IDA
 I have rebased the segment to 0x7c00 as that is the location where the computer will look for the bootloader.
 
-```
+```C
 seg000:7C00 sub_7C00        proc near
 seg000:7C00                 mov     bx, 7E0h
 seg000:7C03                 mov     es, bx

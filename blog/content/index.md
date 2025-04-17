@@ -7,13 +7,14 @@ This site is a place where I would put things that I have learnt along the way :
 # Malware Analysis
 
 ## Sample Analysis
+
+- 23 Feb 2025 - [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record|Analysis on Destructive MEMZ's Master Boot Record (MBR)]]
 - 01 Mar 2025 - [[20250225122153 - BLG - Taking a look into NotPetya's MBR Corruption|Taking a look into NotPetya's MBR Corruption]]
 - 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID|Opaque Predicate Control Flow Deobfuscation- ICEDID]]
 - 20 May 2024 - [[20240520125600 - BLG - A Quick Look at BlackWood DLL Loader|A Quick Look at BlackWood DLL Loader]]
 - 17 Aug 2022 - [[20220817123000 - BLG - My First Malware Sample Analysis|My First Malware Sample Analysis]]
-
 ## Malware Techniques
-- 23 Feb 2025 - [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record|Analysis on Destructive MEMZ's Master Boot Record (MBR)]]
+
 - 15 Nov 2024 - [[20241114145726 - BLG - How CHM Files Are Used and Misused by Bad People|How CHM Files Are Used and Misused by Bad People]]
 - 01 Nov 2024 - [[20241101132806 - BLG- Loading and Executing .NET Binaries from Unmanaged Applications|Loading and Executing .NET Binaries from Unmanaged Applications]]
 - 05 Sep 2023 - [[20230905172200 - BLG - Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File|Relocation Table and Import Address Table (IAT) in Reflectively Loaded PE File]] 
@@ -34,6 +35,11 @@ This site is a place where I would put things that I have learnt along the way :
 - 07 Aug 2020 - [[20200807000000 - BLG - ASUSWRT URL Processing Stack Buffer Overflow|ASUSWRT URL Processing Stack Buffer Overflow]]
 - 12 Jul 2020 - [[20200712093000 - BLG - CVE-2020-6418 - V8 Type Confusion Bug|CVE-2020-6418 - V8 Type Confusion Bug]]
 
+# Presentation Materials
+
+- 06 Sep 2024 - [( ZettelKasten ) Obsidian Note Taking Tour](https://github.com/Owl4444/slides/blob/main/ZettelKasten.pptx)
+- xx xxx 202x - [Using Partial Emulation for Malware Analysis](https://github.com/Owl4444/slides/blob/main/MA-SharingUsing%20Partial%20Emulation%20For%20Malware%20Analysis.pptx)
+- 06 Apr 2022 - [Case Study of Incorrect Optimization of Bitward & Operation in V8](https://github.com/Owl4444/slides/blob/main/STARLabs%20-%20SecWed%20-%20CVE-2021-30599_official.pptx)
 # Origami
 
 - 17 Nov 2022 - [[20221117000000 - BLG - Origami Scorpion Design from Start to Finish|Origami Scorpion Design from Start to Finish]]

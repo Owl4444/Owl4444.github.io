@@ -6,6 +6,7 @@ tags:
 Created: 2025-04-25:01:54:55
 Last Modified: 2025-04-25:01:54:55
 ---
+![[Pasted image 20250425041005.png]]
 # Description
 
 It is 25th April on a sleepless night (because I attempted to sleep early). Someone demonstrated how advertisements kept popping up in the Android phone even when no applications is on. Furthermore, it only happened after downloading an application that appeared on faCebOoK >:I

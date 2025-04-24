@@ -8,6 +8,7 @@ This site is a place where I would put things that I have learnt along the way :
 
 ## Sample Analysis
 
+- 25 Apr 2025 - [[20250425015541 - BLG - Simple Removal of Disruptive Adware-ish APK|Simple Removal of Disruptive Adware-ish APK]]
 - 23 Feb 2025 - [[20250222215149 - BLG - Analysis on Destructive MEMZ's Master Boot Record|Analysis on Destructive MEMZ's Master Boot Record (MBR)]]
 - 01 Mar 2025 - [[20250225122153 - BLG - Taking a look into NotPetya's MBR Corruption|Taking a look into NotPetya's MBR Corruption]]
 - 18 Jun 2024 - [[20240618221206 - BLG - Opaque Predicate Control Flow Deobfuscation- ICEDID|Opaque Predicate Control Flow Deobfuscation- ICEDID]]
